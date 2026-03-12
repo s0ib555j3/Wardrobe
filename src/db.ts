@@ -58,6 +58,11 @@ export async function getItems(): Promise<DBItem[]> {
   return db.getAll('items');
 }
 
+export async function getItem(id: string): Promise<DBItem | undefined> {
+  const db = await initDB();
+  return db.get('items', id);
+}
+
 export async function addItem(item: DBItem): Promise<void> {
   const db = await initDB();
   await db.put('items', item);

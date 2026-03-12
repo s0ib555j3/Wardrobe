@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, Database, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { getItems, addItem as addItemDB, deleteItem as deleteItemDB, getFits, addFit as addFitDB, deleteFit as deleteFitDB, DBSavedFit } from './db';
+import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, Database, CheckCircle2, XCircle, Loader2, Edit2 } from 'lucide-react';
+import { getItems, getItem, addItem as addItemDB, deleteItem as deleteItemDB, getFits, addFit as addFitDB, deleteFit as deleteFitDB, DBSavedFit } from './db';
 
 const MAIN_CATEGORIES = [
   'Outerwear',
@@ -144,7 +144,7 @@ export default function App() {
   
   // Upload State
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadDraft, setUploadDraft] = useState<{ file: File; preview: string; title: string; description: string; category: string } | null>(null);
+  const [uploadDraft, setUploadDraft] = useState<{ id?: string; file?: File; preview: string; title: string; description: string; category: string } | null>(null);
   
   // Save Fit State
   const [isSavingFit, setIsSavingFit] = useState(false);
@@ -203,7 +203,11 @@ export default function App() {
     const file = e.target.files?.[0];
     if (file) {
       const preview = URL.createObjectURL(file);
-      setUploadDraft({
+      setUploadDraft(prev => prev ? {
+        ...prev,
+        file,
+        preview,
+      } : {
         file,
         preview,
         title: file.name.split('.')[0],
@@ -213,9 +217,36 @@ export default function App() {
     }
   };
 
+  const handleEditItem = (item: Item) => {
+    setUploadDraft({
+      id: item.id,
+      preview: item.image,
+      title: item.title,
+      description: item.description || '',
+      category: item.category,
+    });
+    setIsUploading(true);
+  };
+
   const handleSaveItem = async () => {
     if (uploadDraft) {
-      const id = Math.random().toString(36).substring(7);
+      const isEditing = !!uploadDraft.id;
+      const id = uploadDraft.id || Math.random().toString(36).substring(7);
+      
+      let imageBlob: Blob;
+      if (uploadDraft.file) {
+        imageBlob = uploadDraft.file;
+      } else if (isEditing) {
+        const existingItem = await getItem(id);
+        if (!existingItem) {
+          console.error("Original item not found in DB");
+          return;
+        }
+        imageBlob = existingItem.imageBlob;
+      } else {
+        return;
+      }
+
       const newItem: Item = {
         id,
         title: uploadDraft.title || 'Untitled Item',
@@ -230,10 +261,31 @@ export default function App() {
           title: newItem.title,
           description: newItem.description,
           category: newItem.category,
-          imageBlob: uploadDraft.file,
+          imageBlob,
         });
 
-        setCloset((prev) => [...prev, newItem]);
+        if (isEditing) {
+          setCloset(prev => prev.map(i => i.id === id ? newItem : i));
+          
+          setOutfit(prev => {
+            const newOutfit = { ...prev };
+            for (const key of Object.keys(newOutfit) as SlotKey[]) {
+              newOutfit[key] = newOutfit[key].map(i => i.id === id ? newItem : i);
+            }
+            return newOutfit;
+          });
+          
+          setSavedFits(prev => prev.map(fit => {
+            const newFitOutfit = { ...fit.outfit };
+            for (const key of Object.keys(newFitOutfit) as SlotKey[]) {
+              newFitOutfit[key] = newFitOutfit[key].map(i => i.id === id ? newItem : i);
+            }
+            return { ...fit, outfit: newFitOutfit };
+          }));
+        } else {
+          setCloset((prev) => [...prev, newItem]);
+        }
+        
         setUploadDraft(null);
         setIsUploading(false);
       } catch (err) {
@@ -524,12 +576,20 @@ export default function App() {
                   )}
                 </div>
 
-                <button
-                  onClick={() => handleDeleteItem(item.id)}
-                  className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-red-500/80 rounded-full text-zinc-400 hover:text-white opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                  <button
+                    onClick={() => handleEditItem(item)}
+                    className="p-2 bg-black/50 hover:bg-blue-500/80 rounded-full text-zinc-400 hover:text-white transition-all"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteItem(item.id)}
+                    className="p-2 bg-black/50 hover:bg-red-500/80 rounded-full text-zinc-400 hover:text-white transition-all"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -723,7 +783,7 @@ export default function App() {
               <X size={20} />
             </button>
             
-            <h3 className="text-lg font-light tracking-widest uppercase mb-6">Add to Closet</h3>
+            <h3 className="text-lg font-light tracking-widest uppercase mb-6">{uploadDraft?.id ? 'Edit Item' : 'Add to Closet'}</h3>
             
             {!uploadDraft ? (
               <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-zinc-800 rounded-xl hover:border-zinc-600 hover:bg-zinc-900/50 transition-all cursor-pointer group">
@@ -735,9 +795,13 @@ export default function App() {
               </label>
             ) : (
               <div className="flex flex-col gap-4">
-                <div className="w-full h-48 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/50">
+                <label className="w-full h-48 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/50 relative group cursor-pointer block">
                   <img src={uploadDraft.preview} alt="Preview" className="w-full h-full object-contain" />
-                </div>
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-xs uppercase tracking-widest text-white font-mono">Change Image</span>
+                  </div>
+                  <input type="file" className="hidden" accept="image/*" onChange={handleFileSelect} />
+                </label>
                 
                 <div className="flex flex-col gap-3">
                   <input 
