@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, Database, CheckCircle2, XCircle, Loader2, Edit2 } from 'lucide-react';
+import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, Database, CheckCircle2, XCircle, Loader2, Edit2, Edit3 } from 'lucide-react';
 import { getItems, getItem, addItem as addItemDB, deleteItem as deleteItemDB, getFits, addFit as addFitDB, deleteFit as deleteFitDB, DBSavedFit } from './db';
+import { motion } from 'motion/react';
 
 const MAIN_CATEGORIES = [
   'Outerwear',
@@ -149,6 +150,11 @@ export default function App() {
   // Save Fit State
   const [isSavingFit, setIsSavingFit] = useState(false);
   const [fitName, setFitName] = useState('');
+  const [editingFitId, setEditingFitId] = useState<string | null>(null);
+  
+  // Rename Fit State
+  const [renamingFitId, setRenamingFitId] = useState<string | null>(null);
+  const [renamingFitName, setRenamingFitName] = useState('');
 
   const [draggedItem, setDraggedItem] = useState<Item | null>(null);
   const [draggedFitId, setDraggedFitId] = useState<string | null>(null);
@@ -355,10 +361,13 @@ export default function App() {
     }
   };
 
-  const handleSaveFit = async () => {
+  const handleSaveFit = async (updateExisting: boolean = false) => {
     if (fitName.trim()) {
-      const id = Math.random().toString(36).substring(7);
-      const newOrder = savedFits.length;
+      const id = (updateExisting && editingFitId) ? editingFitId : Math.random().toString(36).substring(7);
+      const newOrder = (updateExisting && editingFitId) 
+        ? savedFits.find(f => f.id === id)?.order ?? savedFits.length 
+        : savedFits.length;
+        
       const newFit: SavedFit = {
         id,
         name: fitName.trim(),
@@ -384,8 +393,13 @@ export default function App() {
 
       try {
         await addFitDB(dbFit);
-        setSavedFits((prev) => [...prev, newFit]);
+        if (updateExisting && editingFitId) {
+          setSavedFits((prev) => prev.map(f => f.id === id ? newFit : f));
+        } else {
+          setSavedFits((prev) => [...prev, newFit]);
+        }
         setFitName('');
+        setEditingFitId(null);
         setIsSavingFit(false);
         setCurrentView('saved');
       } catch (err) {
@@ -398,22 +412,27 @@ export default function App() {
     setDraggedFitId(id);
   };
 
-  const handleFitDrop = async (targetId: string) => {
+  const handleFitDragOver = (targetId: string) => {
     if (!draggedFitId || draggedFitId === targetId) return;
     
-    const newFits = [...savedFits];
-    const draggedIdx = newFits.findIndex(f => f.id === draggedFitId);
-    const targetIdx = newFits.findIndex(f => f.id === targetId);
-    
-    const [draggedFit] = newFits.splice(draggedIdx, 1);
-    newFits.splice(targetIdx, 0, draggedFit);
-    
-    const updatedFits = newFits.map((fit, index) => ({ ...fit, order: index }));
-    setSavedFits(updatedFits);
+    setSavedFits(prev => {
+      const newFits = [...prev];
+      const draggedIdx = newFits.findIndex(f => f.id === draggedFitId);
+      const targetIdx = newFits.findIndex(f => f.id === targetId);
+      
+      const [draggedFit] = newFits.splice(draggedIdx, 1);
+      newFits.splice(targetIdx, 0, draggedFit);
+      
+      return newFits.map((fit, index) => ({ ...fit, order: index }));
+    });
+  };
+
+  const handleFitDragEnd = async () => {
+    if (!draggedFitId) return;
     setDraggedFitId(null);
     
     try {
-      for (const fit of updatedFits) {
+      for (const fit of savedFits) {
         await addFitDB({
           id: fit.id,
           name: fit.name,
@@ -437,7 +456,45 @@ export default function App() {
 
   const handleLoadFit = (fit: SavedFit) => {
     setOutfit(fit.outfit);
+    setEditingFitId(fit.id);
+    setFitName(fit.name);
     setCurrentView('builder');
+  };
+
+  const handleStartRename = (fit: SavedFit) => {
+    setRenamingFitId(fit.id);
+    setRenamingFitName(fit.name);
+  };
+
+  const handleSaveRename = async (fit: SavedFit) => {
+    if (!renamingFitName.trim() || renamingFitName === fit.name) {
+      setRenamingFitId(null);
+      return;
+    }
+    
+    const updatedFit = { ...fit, name: renamingFitName.trim() };
+    
+    try {
+      await addFitDB({
+        id: updatedFit.id,
+        name: updatedFit.name,
+        order: updatedFit.order,
+        outfit: {
+          headwear: updatedFit.outfit.headwear.map(i => i.id),
+          eyewear: updatedFit.outfit.eyewear.map(i => i.id),
+          top: updatedFit.outfit.top.map(i => i.id),
+          bottom: updatedFit.outfit.bottom.map(i => i.id),
+          footwear: updatedFit.outfit.footwear.map(i => i.id),
+          leftArm: updatedFit.outfit.leftArm.map(i => i.id),
+          rightArm: updatedFit.outfit.rightArm.map(i => i.id),
+          accessories: updatedFit.outfit.accessories.map(i => i.id),
+        }
+      });
+      setSavedFits(prev => prev.map(f => f.id === fit.id ? updatedFit : f));
+      setRenamingFitId(null);
+    } catch (err) {
+      console.error("Failed to rename fit", err);
+    }
   };
 
   const handleDeleteFit = async (id: string) => {
@@ -611,7 +668,7 @@ export default function App() {
               className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-300 hover:text-white transition-colors border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save size={12} />
-              Save Fit
+              {editingFitId ? 'Update Fit' : 'Save Fit'}
             </button>
           </div>
         </div>
@@ -700,17 +757,41 @@ export default function App() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {displayedFits.map(fit => (
-              <div 
+              <motion.div 
+                layout
                 key={fit.id} 
                 draggable={fitFilterItemId === 'All'}
                 onDragStart={() => fitFilterItemId === 'All' && handleFitDragStart(fit.id)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => fitFilterItemId === 'All' && handleFitDrop(fit.id)}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (fitFilterItemId === 'All') handleFitDragOver(fit.id);
+                }}
+                onDragEnd={handleFitDragEnd}
                 className={`flex flex-col gap-4 p-4 border border-zinc-900 rounded-2xl bg-zinc-950/50 hover:border-zinc-700 transition-colors group ${fitFilterItemId === 'All' ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedFitId === fit.id ? 'opacity-50 border-zinc-500' : ''}`}
               >
                 <FitCollage outfit={fit.outfit} />
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium tracking-wide truncate pr-4">{fit.name}</span>
+                  {renamingFitId === fit.id ? (
+                    <input
+                      type="text"
+                      value={renamingFitName}
+                      onChange={(e) => setRenamingFitName(e.target.value)}
+                      onBlur={() => handleSaveRename(fit)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveRename(fit)}
+                      autoFocus
+                      className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-zinc-500 w-full mr-2"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-2 overflow-hidden pr-2">
+                      <span className="text-sm font-medium tracking-wide truncate">{fit.name}</span>
+                      <button 
+                        onClick={() => handleStartRename(fit)}
+                        className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      >
+                        <Edit3 size={12} />
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 shrink-0">
                     <button 
                       onClick={() => handleLoadFit(fit)} 
@@ -726,7 +807,7 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
@@ -870,13 +951,32 @@ export default function App() {
                 className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 transition-colors text-zinc-100 placeholder:text-zinc-600" 
                 autoFocus
               />
-              <button 
-                onClick={handleSaveFit} 
-                disabled={!fitName.trim()}
-                className="w-full bg-zinc-100 text-zinc-950 font-medium py-3 rounded-lg hover:bg-white transition-colors uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Save
-              </button>
+              {editingFitId ? (
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => handleSaveFit(false)} 
+                    disabled={!fitName.trim()}
+                    className="flex-1 bg-zinc-800 text-zinc-100 font-medium py-3 rounded-lg hover:bg-zinc-700 transition-colors uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save as New
+                  </button>
+                  <button 
+                    onClick={() => handleSaveFit(true)} 
+                    disabled={!fitName.trim()}
+                    className="flex-1 bg-zinc-100 text-zinc-950 font-medium py-3 rounded-lg hover:bg-white transition-colors uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Update Fit
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => handleSaveFit(false)} 
+                  disabled={!fitName.trim()}
+                  className="w-full bg-zinc-100 text-zinc-950 font-medium py-3 rounded-lg hover:bg-white transition-colors uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save
+                </button>
+              )}
             </div>
           </div>
         </div>
