@@ -17,6 +17,7 @@ export type DBOutfit = {
   leftArm: string[];
   rightArm: string[];
   accessories: string[];
+  watch?: string[];
 };
 
 export type DBSavedFit = {

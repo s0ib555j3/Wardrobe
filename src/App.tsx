@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, Database, CheckCircle2, XCircle, Loader2, Edit2, Edit3 } from 'lucide-react';
+import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, ArrowRight, Database, CheckCircle2, XCircle, Loader2, Edit2, Edit3, BookOpen } from 'lucide-react';
 import { getItems, getItem, addItem as addItemDB, deleteItem as deleteItemDB, getFits, addFit as addFitDB, deleteFit as deleteFitDB, DBSavedFit } from './db';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 const MAIN_CATEGORIES = [
   'Outerwear',
@@ -38,6 +38,7 @@ type Outfit = {
   leftArm: Item[];
   rightArm: Item[];
   accessories: Item[];
+  watch: Item[];
 };
 
 type SavedFit = {
@@ -55,12 +56,13 @@ type SlotProps = {
   label: string;
   slotKey: SlotKey;
   items: Item[];
-  onDrop: (slotKey: SlotKey) => void;
-  onRemove: (slotKey: SlotKey, itemId: string) => void;
+  onDrop?: (slotKey: SlotKey) => void;
+  onRemove?: (slotKey: SlotKey, itemId: string) => void;
   className?: string;
+  readOnly?: boolean;
 };
 
-const Slot = ({ label, slotKey, items, onDrop, onRemove, className = "aspect-square" }: SlotProps) => {
+const Slot = ({ label, slotKey, items, onDrop, onRemove, className = "aspect-square", readOnly = false }: SlotProps) => {
   const gridClass = items.length === 1 ? 'grid-cols-1' : 
                     items.length === 2 ? 'grid-cols-2' : 
                     items.length === 3 ? 'grid-cols-2 grid-rows-2' : 
@@ -68,9 +70,13 @@ const Slot = ({ label, slotKey, items, onDrop, onRemove, className = "aspect-squ
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center w-full border border-zinc-800 rounded-xl bg-zinc-900/50 overflow-hidden transition-colors hover:border-zinc-700 group ${className}`}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={() => onDrop(slotKey)}
+      className={`relative flex flex-col items-center justify-center w-full border border-zinc-800 rounded-xl bg-zinc-900/50 overflow-hidden transition-colors ${readOnly ? '' : 'hover:border-zinc-700 group'} ${className}`}
+      onDragOver={(e) => {
+        if (!readOnly) e.preventDefault();
+      }}
+      onDrop={() => {
+        if (!readOnly && onDrop) onDrop(slotKey);
+      }}
     >
       <span className="absolute top-2 left-2 text-[10px] uppercase tracking-widest text-zinc-500 font-mono z-20 pointer-events-none bg-zinc-900/80 px-1.5 py-0.5 rounded backdrop-blur-sm">
         {label}
@@ -81,12 +87,14 @@ const Slot = ({ label, slotKey, items, onDrop, onRemove, className = "aspect-squ
           {items.map((item, i) => (
             <div key={item.id} className={`relative group/item ${items.length === 3 && i === 0 ? 'col-span-2 row-span-1' : ''}`}>
               <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-90" />
-              <button
-                onClick={(e) => { e.stopPropagation(); onRemove(slotKey, item.id); }}
-                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/80 rounded-full text-zinc-400 hover:text-white transition-colors z-30 opacity-0 group-hover/item:opacity-100"
-              >
-                <X size={14} />
-              </button>
+              {!readOnly && onRemove && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onRemove(slotKey, item.id); }}
+                  className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/80 rounded-full text-zinc-400 hover:text-white transition-colors z-30 opacity-0 group-hover/item:opacity-100"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -97,31 +105,70 @@ const Slot = ({ label, slotKey, items, onDrop, onRemove, className = "aspect-squ
   );
 };
 
-const FitCollage = ({ outfit }: { outfit: Outfit }) => {
-  const allItems = Object.values(outfit).flatMap(slot => slot.length > 0 ? [slot[0]] : []);
-  const displayItems = allItems.slice(0, 4);
+const FitCollage = ({ outfit, onClick }: { outfit: Outfit, onClick?: () => void }) => {
+  const displayItems = [
+    ...outfit.headwear,
+    ...outfit.top,
+    ...outfit.bottom,
+    ...outfit.footwear,
+    ...outfit.watch
+  ].slice(0, 6);
   
   if (displayItems.length === 0) {
-    return <div className="w-full aspect-square bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-700 font-mono text-xs">EMPTY</div>;
+    return <div onClick={onClick} className="w-full aspect-square bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-700 font-mono text-xs cursor-pointer">EMPTY</div>;
   }
 
   const gridClass = displayItems.length === 1 ? 'grid-cols-1' : 
                     displayItems.length === 2 ? 'grid-cols-2' : 
                     displayItems.length === 3 ? 'grid-cols-2 grid-rows-2' : 
-                    'grid-cols-2 grid-rows-2';
+                    displayItems.length === 4 ? 'grid-cols-2 grid-rows-2' :
+                    displayItems.length === 5 ? 'grid-cols-3 grid-rows-2' :
+                    'grid-cols-3 grid-rows-2';
 
   return (
-    <div className={`w-full aspect-square grid gap-1 rounded-xl overflow-hidden bg-zinc-900 ${gridClass}`}>
+    <div onClick={onClick} className={`w-full aspect-square grid gap-1 rounded-xl overflow-hidden bg-zinc-900 cursor-pointer ${gridClass}`}>
       {displayItems.map((item, i) => (
         <img 
           key={i} 
           src={item.image} 
           alt={item.title} 
-          className={`w-full h-full object-cover ${displayItems.length === 3 && i === 0 ? 'col-span-2 row-span-1' : ''}`} 
+          className={`w-full h-full object-cover ${displayItems.length === 3 && i === 0 ? 'col-span-2 row-span-1' : ''} ${displayItems.length === 5 && i === 0 ? 'col-span-1 row-span-2' : ''}`} 
         />
       ))}
     </div>
   );
+};
+
+const FitLayoutPreview = ({ outfit }: { outfit: Outfit }) => (
+  <div className="flex flex-row justify-center gap-4 sm:gap-6 w-full max-w-3xl mx-auto">
+    {/* Left Column */}
+    <div className="flex flex-col gap-4 sm:gap-6 w-24 sm:w-32 pt-16 sm:pt-24">
+      <Slot label="Accessories" slotKey="accessories" items={outfit.accessories} readOnly />
+      <Slot label="L. Arm" slotKey="leftArm" items={outfit.leftArm} readOnly />
+      <Slot label="Watch" slotKey="watch" items={outfit.watch} readOnly />
+    </div>
+    
+    {/* Center Column */}
+    <div className="flex flex-col gap-4 sm:gap-6 w-32 sm:w-48">
+      <Slot label="Headwear" slotKey="headwear" items={outfit.headwear} readOnly />
+      <Slot label="Top / Outerwear" slotKey="top" items={outfit.top} className="aspect-[3/4]" readOnly />
+      <Slot label="Bottom" slotKey="bottom" items={outfit.bottom} readOnly />
+      <Slot label="Footwear" slotKey="footwear" items={outfit.footwear} readOnly />
+    </div>
+    
+    {/* Right Column */}
+    <div className="flex flex-col gap-4 sm:gap-6 w-24 sm:w-32 pt-16 sm:pt-24">
+      <Slot label="Eyewear" slotKey="eyewear" items={outfit.eyewear} readOnly />
+      <Slot label="R. Arm" slotKey="rightArm" items={outfit.rightArm} readOnly />
+    </div>
+  </div>
+);
+
+const getCarouselOffset = (index: number, currentIndex: number, length: number) => {
+  let diff = index - currentIndex;
+  if (diff > length / 2) diff -= length;
+  if (diff < -length / 2) diff += length;
+  return diff;
 };
 
 export default function App() {
@@ -139,6 +186,7 @@ export default function App() {
     leftArm: [],
     rightArm: [],
     accessories: [],
+    watch: [],
   });
   
   const [savedFits, setSavedFits] = useState<SavedFit[]>([]);
@@ -159,6 +207,16 @@ export default function App() {
   const [draggedItem, setDraggedItem] = useState<Item | null>(null);
   const [draggedFitId, setDraggedFitId] = useState<string | null>(null);
   const [fitFilterItemId, setFitFilterItemId] = useState<string>('All');
+  const [lookbookMode, setLookbookMode] = useState(false);
+  const [lookbookIndex, setLookbookIndex] = useState(0);
+  const [lookbookDirection, setLookbookDirection] = useState(0);
+  const [previewFit, setPreviewFit] = useState<SavedFit | null>(null);
+
+  const displayedFits = fitFilterItemId === 'All' 
+    ? savedFits 
+    : savedFits.filter(fit => 
+        Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId))
+      );
 
   useEffect(() => {
     async function loadData() {
@@ -189,6 +247,7 @@ export default function App() {
               leftArm: mapSlot(dbFit.outfit.leftArm),
               rightArm: mapSlot(dbFit.outfit.rightArm),
               accessories: mapSlot(dbFit.outfit.accessories),
+              watch: mapSlot(dbFit.outfit.watch || []),
             }
           };
         }).sort((a, b) => a.order - b.order);
@@ -204,6 +263,34 @@ export default function App() {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!lookbookMode || displayedFits.length === 0) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') {
+        setLookbookDirection(1);
+        setLookbookIndex(prev => (prev + 1) % displayedFits.length);
+      } else if (e.key === 'ArrowLeft') {
+        setLookbookDirection(-1);
+        setLookbookIndex(prev => (prev - 1 + displayedFits.length) % displayedFits.length);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lookbookMode, displayedFits.length]);
+
+  useEffect(() => {
+    if (!previewFit) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setPreviewFit(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewFit]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -388,6 +475,7 @@ export default function App() {
           leftArm: outfit.leftArm.map(i => i.id),
           rightArm: outfit.rightArm.map(i => i.id),
           accessories: outfit.accessories.map(i => i.id),
+          watch: outfit.watch.map(i => i.id),
         }
       };
 
@@ -401,6 +489,7 @@ export default function App() {
         setFitName('');
         setEditingFitId(null);
         setIsSavingFit(false);
+        setLookbookMode(false);
         setCurrentView('saved');
       } catch (err) {
         console.error("Failed to save fit", err);
@@ -446,6 +535,7 @@ export default function App() {
             leftArm: fit.outfit.leftArm.map(i => i.id),
             rightArm: fit.outfit.rightArm.map(i => i.id),
             accessories: fit.outfit.accessories.map(i => i.id),
+            watch: fit.outfit.watch.map(i => i.id),
           }
         });
       }
@@ -488,6 +578,7 @@ export default function App() {
           leftArm: updatedFit.outfit.leftArm.map(i => i.id),
           rightArm: updatedFit.outfit.rightArm.map(i => i.id),
           accessories: updatedFit.outfit.accessories.map(i => i.id),
+          watch: updatedFit.outfit.watch.map(i => i.id),
         }
       });
       setSavedFits(prev => prev.map(f => f.id === fit.id ? updatedFit : f));
@@ -527,7 +618,10 @@ export default function App() {
         </button>
 
         <button 
-          onClick={() => setCurrentView('saved')}
+          onClick={() => {
+            setLookbookMode(false);
+            setCurrentView('saved');
+          }}
           className="flex flex-col items-center justify-center gap-6 p-12 border border-zinc-800 rounded-3xl bg-zinc-900/20 hover:bg-zinc-900/60 hover:border-zinc-600 transition-all group"
         >
           <div className="p-4 bg-zinc-900 rounded-2xl group-hover:scale-110 transition-transform">
@@ -679,6 +773,7 @@ export default function App() {
             <div className="flex flex-col gap-4 sm:gap-6 w-24 sm:w-32 pt-16 sm:pt-24">
               <Slot label="Accessories" slotKey="accessories" items={outfit.accessories} onDrop={handleDrop} onRemove={handleRemoveFromSlot} />
               <Slot label="L. Arm" slotKey="leftArm" items={outfit.leftArm} onDrop={handleDrop} onRemove={handleRemoveFromSlot} />
+              <Slot label="Watch" slotKey="watch" items={outfit.watch} onDrop={handleDrop} onRemove={handleRemoveFromSlot} />
             </div>
             
             {/* Center Column */}
@@ -709,12 +804,6 @@ export default function App() {
       Object.values(fit.outfit).flatMap(slot => (slot as Item[]).map(item => item.id))
     ))).map(id => closet.find(i => i.id === id)).filter(Boolean) as Item[];
 
-    const displayedFits = fitFilterItemId === 'All' 
-      ? savedFits 
-      : savedFits.filter(fit => 
-          Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId))
-        );
-
     return (
       <section className="flex flex-col gap-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -723,21 +812,31 @@ export default function App() {
             <span className="text-xs text-zinc-600 font-mono">{savedFits.length} SAVED</span>
           </div>
           
-          {savedFits.length > 0 && itemsInFits.length > 0 && (
-            <div className="flex items-center gap-3">
-              <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Filter by Item:</span>
-              <select 
-                value={fitFilterItemId} 
-                onChange={(e) => setFitFilterItemId(e.target.value)}
-                className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 max-w-[200px] truncate"
-              >
-                <option value="All">All Items</option>
-                {itemsInFits.map(item => (
-                  <option key={item.id} value={item.id}>{item.title}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="flex items-center gap-4">
+            {savedFits.length > 0 && itemsInFits.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Filter by Item:</span>
+                <select 
+                  value={fitFilterItemId} 
+                  onChange={(e) => setFitFilterItemId(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 max-w-[200px] truncate"
+                >
+                  <option value="All">All Items</option>
+                  {itemsInFits.map(item => (
+                    <option key={item.id} value={item.id}>{item.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            <button 
+              onClick={() => setLookbookMode(!lookbookMode)}
+              className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-lg hover:bg-zinc-800"
+            >
+              {lookbookMode ? <LayoutGrid size={14} /> : <BookOpen size={14} />}
+              {lookbookMode ? 'Grid View' : 'Lookbook'}
+            </button>
+          </div>
         </div>
         
         {savedFits.length === 0 ? (
@@ -754,6 +853,84 @@ export default function App() {
           <div className="flex flex-col items-center justify-center h-64 border border-dashed border-zinc-800 rounded-2xl text-zinc-600">
             <p className="font-mono text-sm uppercase tracking-widest">No fits found with this item</p>
           </div>
+        ) : lookbookMode ? (
+          <div className="flex flex-col items-center justify-center py-12 relative overflow-hidden min-h-[800px] w-full">
+            <div className="relative w-full max-w-6xl h-[700px] flex items-center justify-center">
+              {displayedFits.map((fit, index) => {
+                const offset = getCarouselOffset(index, lookbookIndex, displayedFits.length);
+                const isCurrent = offset === 0;
+                const isVisible = Math.abs(offset) <= 1 || displayedFits.length <= 3;
+                
+                return (
+                  <motion.div
+                    key={fit.id}
+                    initial={false}
+                    animate={{
+                      x: `${offset * 85}%`,
+                      scale: isCurrent ? 1 : 0.7,
+                      opacity: isCurrent ? 1 : Math.abs(offset) === 1 ? 0.3 : 0,
+                      zIndex: isCurrent ? 20 : 10,
+                    }}
+                    transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                    onClick={() => {
+                      if (!isCurrent && Math.abs(offset) === 1) {
+                        setLookbookDirection(offset > 0 ? 1 : -1);
+                        setLookbookIndex(index);
+                      }
+                    }}
+                    className={`absolute w-full max-w-3xl flex flex-col gap-8 items-center ${isCurrent ? 'pointer-events-auto' : 'pointer-events-auto cursor-pointer'}`}
+                    style={{ pointerEvents: Math.abs(offset) > 1 ? 'none' : 'auto' }}
+                  >
+                    <div className="flex items-center justify-between w-full max-w-3xl px-8">
+                      <h3 className="text-2xl font-light tracking-widest uppercase">{fit.name}</h3>
+                      <div className="flex items-center gap-4">
+                        <span className="text-xs text-zinc-500 font-mono">
+                          {index + 1} / {displayedFits.length}
+                        </span>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLoadFit(fit);
+                          }} 
+                          className="text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-4 py-2 border border-zinc-800 rounded-full hover:bg-zinc-800"
+                          tabIndex={isCurrent ? 0 : -1}
+                        >
+                          Load in Builder
+                        </button>
+                      </div>
+                    </div>
+                    <div className={isCurrent ? '' : 'pointer-events-none'}>
+                      <FitLayoutPreview outfit={fit.outfit} />
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+            
+            {/* Navigation Buttons */}
+            {displayedFits.length > 1 && (
+              <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-between px-0 sm:px-4 pointer-events-none z-30">
+                <button 
+                  onClick={() => {
+                    setLookbookDirection(-1);
+                    setLookbookIndex(prev => (prev - 1 + displayedFits.length) % displayedFits.length);
+                  }}
+                  className="pointer-events-auto p-4 rounded-full bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors backdrop-blur-md border border-zinc-800"
+                >
+                  <ArrowLeft size={24} />
+                </button>
+                <button 
+                  onClick={() => {
+                    setLookbookDirection(1);
+                    setLookbookIndex(prev => (prev + 1) % displayedFits.length);
+                  }}
+                  className="pointer-events-auto p-4 rounded-full bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors backdrop-blur-md border border-zinc-800"
+                >
+                  <ArrowRight size={24} />
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {displayedFits.map(fit => (
@@ -769,7 +946,7 @@ export default function App() {
                 onDragEnd={handleFitDragEnd}
                 className={`flex flex-col gap-4 p-4 border border-zinc-900 rounded-2xl bg-zinc-950/50 hover:border-zinc-700 transition-colors group ${fitFilterItemId === 'All' ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedFitId === fit.id ? 'opacity-50 border-zinc-500' : ''}`}
               >
-                <FitCollage outfit={fit.outfit} />
+                <FitCollage outfit={fit.outfit} onClick={() => setPreviewFit(fit)} />
                 <div className="flex items-center justify-between">
                   {renamingFitId === fit.id ? (
                     <input
@@ -849,6 +1026,38 @@ export default function App() {
         {currentView === 'saved' && renderSavedFits()}
         {currentView === 'closet' && renderClosetGrid(false)}
       </main>
+
+      {/* Preview Fit Modal */}
+      {previewFit && (
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[100] flex flex-col items-center p-4 sm:p-8 overflow-y-auto">
+          <div className="fixed top-0 left-0 right-0 p-4 sm:p-8 flex items-center justify-start z-[110] pointer-events-none">
+            <button
+              onClick={() => setPreviewFit(null)}
+              className="pointer-events-auto flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors bg-zinc-900/80 px-4 py-2 rounded-full border border-zinc-800 backdrop-blur-md"
+            >
+              <ArrowLeft size={16} />
+              Back to Fits
+            </button>
+          </div>
+          
+          <div className="w-full max-w-4xl relative flex flex-col gap-8 my-auto pt-16 pb-8">
+            <div className="flex items-center justify-between w-full max-w-3xl mx-auto">
+              <h3 className="text-2xl font-light tracking-widest uppercase">{previewFit.name}</h3>
+              <button 
+                onClick={() => {
+                  handleLoadFit(previewFit);
+                  setPreviewFit(null);
+                }} 
+                className="text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-4 py-2 border border-zinc-800 rounded-full hover:bg-zinc-800"
+              >
+                Load in Builder
+              </button>
+            </div>
+            
+            <FitLayoutPreview outfit={previewFit.outfit} />
+          </div>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {isUploading && (
