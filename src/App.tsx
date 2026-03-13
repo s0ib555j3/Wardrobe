@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, ArrowRight, Database, CheckCircle2, XCircle, Loader2, Edit2, Edit3, BookOpen } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, ArrowRight, Database, CheckCircle2, XCircle, Loader2, Edit2, Edit3, BookOpen, ThermometerSun, Thermometer, ThermometerSnowflake, CloudRain } from 'lucide-react';
 import { getItems, getItem, addItem as addItemDB, deleteItem as deleteItemDB, getFits, addFit as addFitDB, deleteFit as deleteFitDB, DBSavedFit } from './db';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -46,6 +46,8 @@ type SavedFit = {
   name: string;
   outfit: Outfit;
   order: number;
+  weather?: 'hot' | 'medium' | 'cold';
+  rain?: boolean;
 };
 
 type SlotKey = keyof Outfit;
@@ -106,35 +108,48 @@ const Slot = ({ label, slotKey, items, onDrop, onRemove, className = "aspect-squ
 };
 
 const FitCollage = ({ outfit, onClick }: { outfit: Outfit, onClick?: () => void }) => {
-  const displayItems = [
-    ...outfit.headwear,
-    ...outfit.top,
-    ...outfit.bottom,
-    ...outfit.footwear,
-    ...outfit.watch
-  ].slice(0, 6);
-  
-  if (displayItems.length === 0) {
-    return <div onClick={onClick} className="w-full aspect-square bg-zinc-900 rounded-xl flex items-center justify-center text-zinc-700 font-mono text-xs cursor-pointer">EMPTY</div>;
-  }
+  const headwear = outfit.headwear[0];
+  const tops = outfit.top.slice(0, 2);
+  const bottom = outfit.bottom[0];
+  const footwear = outfit.footwear[0];
 
-  const gridClass = displayItems.length === 1 ? 'grid-cols-1' : 
-                    displayItems.length === 2 ? 'grid-cols-2' : 
-                    displayItems.length === 3 ? 'grid-cols-2 grid-rows-2' : 
-                    displayItems.length === 4 ? 'grid-cols-2 grid-rows-2' :
-                    displayItems.length === 5 ? 'grid-cols-3 grid-rows-2' :
-                    'grid-cols-3 grid-rows-2';
+  const renderQuadrant = (item?: Item) => {
+    if (!item) {
+      return (
+        <div className="w-full h-full bg-zinc-900 flex items-center justify-center text-zinc-800 font-mono text-[10px]">
+          EMPTY
+        </div>
+      );
+    }
+    return <img src={item.image} alt={item.title} className="w-full h-full object-cover bg-zinc-800" />;
+  };
+
+  const renderTopsQuadrant = () => {
+    if (tops.length === 0) return renderQuadrant(undefined);
+    if (tops.length === 1) return renderQuadrant(tops[0]);
+    
+    return (
+      <div className="w-full h-full grid grid-cols-2 gap-1 bg-zinc-950">
+        <img src={tops[0].image} alt={tops[0].title} className="w-full h-full object-cover bg-zinc-800" />
+        <img src={tops[1].image} alt={tops[1].title} className="w-full h-full object-cover bg-zinc-800" />
+      </div>
+    );
+  };
 
   return (
-    <div onClick={onClick} className={`w-full aspect-square grid gap-1 rounded-xl overflow-hidden bg-zinc-900 cursor-pointer ${gridClass}`}>
-      {displayItems.map((item, i) => (
-        <img 
-          key={i} 
-          src={item.image} 
-          alt={item.title} 
-          className={`w-full h-full object-cover ${displayItems.length === 3 && i === 0 ? 'col-span-2 row-span-1' : ''} ${displayItems.length === 5 && i === 0 ? 'col-span-1 row-span-2' : ''}`} 
-        />
-      ))}
+    <div onClick={onClick} className="w-full aspect-square grid grid-cols-2 grid-rows-2 gap-1 rounded-xl overflow-hidden bg-zinc-950 cursor-pointer">
+      <div className="w-full h-full overflow-hidden bg-zinc-900">
+        {renderQuadrant(headwear)}
+      </div>
+      <div className="w-full h-full overflow-hidden bg-zinc-900">
+        {renderTopsQuadrant()}
+      </div>
+      <div className="w-full h-full overflow-hidden bg-zinc-900">
+        {renderQuadrant(bottom)}
+      </div>
+      <div className="w-full h-full overflow-hidden bg-zinc-900">
+        {renderQuadrant(footwear)}
+      </div>
     </div>
   );
 };
@@ -198,25 +213,30 @@ export default function App() {
   // Save Fit State
   const [isSavingFit, setIsSavingFit] = useState(false);
   const [fitName, setFitName] = useState('');
+  const [fitWeather, setFitWeather] = useState<'hot' | 'medium' | 'cold'>('medium');
+  const [fitRain, setFitRain] = useState(false);
   const [editingFitId, setEditingFitId] = useState<string | null>(null);
   
   // Rename Fit State
-  const [renamingFitId, setRenamingFitId] = useState<string | null>(null);
-  const [renamingFitName, setRenamingFitName] = useState('');
+  const [editingFitMetadata, setEditingFitMetadata] = useState<SavedFit | null>(null);
+  const [editingFitName, setEditingFitName] = useState('');
+  const [editingFitWeather, setEditingFitWeather] = useState<'hot' | 'medium' | 'cold'>('medium');
+  const [editingFitRain, setEditingFitRain] = useState(false);
 
   const [draggedItem, setDraggedItem] = useState<Item | null>(null);
   const [draggedFitId, setDraggedFitId] = useState<string | null>(null);
   const [fitFilterItemId, setFitFilterItemId] = useState<string>('All');
+  const [fitSortWeather, setFitSortWeather] = useState<'all' | 'hot' | 'medium' | 'cold'>('all');
+  const [fitSortRain, setFitSortRain] = useState<'all' | 'rain' | 'no-rain'>('all');
   const [lookbookMode, setLookbookMode] = useState(false);
   const [lookbookIndex, setLookbookIndex] = useState(0);
   const [lookbookDirection, setLookbookDirection] = useState(0);
   const [previewFit, setPreviewFit] = useState<SavedFit | null>(null);
 
-  const displayedFits = fitFilterItemId === 'All' 
-    ? savedFits 
-    : savedFits.filter(fit => 
-        Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId))
-      );
+  const displayedFits = savedFits
+    .filter(fit => fitFilterItemId === 'All' || Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId)))
+    .filter(fit => fitSortWeather === 'all' || fit.weather === fitSortWeather)
+    .filter(fit => fitSortRain === 'all' || (fitSortRain === 'rain' ? fit.rain : !fit.rain));
 
   useEffect(() => {
     async function loadData() {
@@ -238,6 +258,8 @@ export default function App() {
             id: dbFit.id,
             name: dbFit.name,
             order: dbFit.order ?? 0,
+            weather: dbFit.weather,
+            rain: dbFit.rain,
             outfit: {
               headwear: mapSlot(dbFit.outfit.headwear),
               eyewear: mapSlot(dbFit.outfit.eyewear),
@@ -449,51 +471,56 @@ export default function App() {
   };
 
   const handleSaveFit = async (updateExisting: boolean = false) => {
-    if (fitName.trim()) {
-      const id = (updateExisting && editingFitId) ? editingFitId : Math.random().toString(36).substring(7);
-      const newOrder = (updateExisting && editingFitId) 
-        ? savedFits.find(f => f.id === id)?.order ?? savedFits.length 
-        : savedFits.length;
-        
-      const newFit: SavedFit = {
-        id,
-        name: fitName.trim(),
-        order: newOrder,
-        outfit: { ...outfit },
-      };
+    const finalName = fitName.trim() || 'Untitled Fit';
+    const id = (updateExisting && editingFitId) ? editingFitId : Math.random().toString(36).substring(7);
+    const newOrder = (updateExisting && editingFitId) 
+      ? savedFits.find(f => f.id === id)?.order ?? savedFits.length 
+      : savedFits.length;
+      
+    const newFit: SavedFit = {
+      id,
+      name: finalName,
+      order: newOrder,
+      weather: fitWeather,
+      rain: fitRain,
+      outfit: { ...outfit },
+    };
 
-      const dbFit: DBSavedFit = {
-        id,
-        name: newFit.name,
-        order: newOrder,
-        outfit: {
-          headwear: outfit.headwear.map(i => i.id),
-          eyewear: outfit.eyewear.map(i => i.id),
-          top: outfit.top.map(i => i.id),
-          bottom: outfit.bottom.map(i => i.id),
-          footwear: outfit.footwear.map(i => i.id),
-          leftArm: outfit.leftArm.map(i => i.id),
-          rightArm: outfit.rightArm.map(i => i.id),
-          accessories: outfit.accessories.map(i => i.id),
-          watch: outfit.watch.map(i => i.id),
-        }
-      };
-
-      try {
-        await addFitDB(dbFit);
-        if (updateExisting && editingFitId) {
-          setSavedFits((prev) => prev.map(f => f.id === id ? newFit : f));
-        } else {
-          setSavedFits((prev) => [...prev, newFit]);
-        }
-        setFitName('');
-        setEditingFitId(null);
-        setIsSavingFit(false);
-        setLookbookMode(false);
-        setCurrentView('saved');
-      } catch (err) {
-        console.error("Failed to save fit", err);
+    const dbFit: DBSavedFit = {
+      id,
+      name: newFit.name,
+      order: newOrder,
+      weather: fitWeather,
+      rain: fitRain,
+      outfit: {
+        headwear: outfit.headwear.map(i => i.id),
+        eyewear: outfit.eyewear.map(i => i.id),
+        top: outfit.top.map(i => i.id),
+        bottom: outfit.bottom.map(i => i.id),
+        footwear: outfit.footwear.map(i => i.id),
+        leftArm: outfit.leftArm.map(i => i.id),
+        rightArm: outfit.rightArm.map(i => i.id),
+        accessories: outfit.accessories.map(i => i.id),
+        watch: outfit.watch.map(i => i.id),
       }
+    };
+
+    try {
+      await addFitDB(dbFit);
+      if (updateExisting && editingFitId) {
+        setSavedFits((prev) => prev.map(f => f.id === id ? newFit : f));
+      } else {
+        setSavedFits((prev) => [...prev, newFit]);
+      }
+      setFitName('');
+      setFitWeather('medium');
+      setFitRain(false);
+      setEditingFitId(null);
+      setIsSavingFit(false);
+      setLookbookMode(false);
+      setCurrentView('saved');
+    } catch (err) {
+      console.error("Failed to save fit", err);
     }
   };
 
@@ -526,6 +553,8 @@ export default function App() {
           id: fit.id,
           name: fit.name,
           order: fit.order,
+          weather: fit.weather,
+          rain: fit.rain,
           outfit: {
             headwear: fit.outfit.headwear.map(i => i.id),
             eyewear: fit.outfit.eyewear.map(i => i.id),
@@ -547,28 +576,38 @@ export default function App() {
   const handleLoadFit = (fit: SavedFit) => {
     setOutfit(fit.outfit);
     setEditingFitId(fit.id);
-    setFitName(fit.name);
+    setFitName(fit.name === 'Untitled Fit' ? '' : fit.name);
+    setFitWeather(fit.weather || 'medium');
+    setFitRain(fit.rain || false);
     setCurrentView('builder');
   };
 
-  const handleStartRename = (fit: SavedFit) => {
-    setRenamingFitId(fit.id);
-    setRenamingFitName(fit.name);
+  const handleStartEditMetadata = (fit: SavedFit) => {
+    setEditingFitMetadata(fit);
+    setEditingFitName(fit.name === 'Untitled Fit' ? '' : fit.name);
+    setEditingFitWeather(fit.weather || 'medium');
+    setEditingFitRain(fit.rain || false);
   };
 
-  const handleSaveRename = async (fit: SavedFit) => {
-    if (!renamingFitName.trim() || renamingFitName === fit.name) {
-      setRenamingFitId(null);
-      return;
-    }
+  const handleSaveMetadata = async () => {
+    if (!editingFitMetadata) return;
     
-    const updatedFit = { ...fit, name: renamingFitName.trim() };
+    const finalName = editingFitName.trim() || 'Untitled Fit';
+    
+    const updatedFit = { 
+      ...editingFitMetadata, 
+      name: finalName,
+      weather: editingFitWeather,
+      rain: editingFitRain
+    };
     
     try {
       await addFitDB({
         id: updatedFit.id,
         name: updatedFit.name,
         order: updatedFit.order,
+        weather: updatedFit.weather,
+        rain: updatedFit.rain,
         outfit: {
           headwear: updatedFit.outfit.headwear.map(i => i.id),
           eyewear: updatedFit.outfit.eyewear.map(i => i.id),
@@ -581,10 +620,10 @@ export default function App() {
           watch: updatedFit.outfit.watch.map(i => i.id),
         }
       });
-      setSavedFits(prev => prev.map(f => f.id === fit.id ? updatedFit : f));
-      setRenamingFitId(null);
+      setSavedFits(prev => prev.map(f => f.id === updatedFit.id ? updatedFit : f));
+      setEditingFitMetadata(null);
     } catch (err) {
-      console.error("Failed to rename fit", err);
+      console.error("Failed to update fit metadata", err);
     }
   };
 
@@ -599,14 +638,53 @@ export default function App() {
 
   const isOutfitEmpty = Object.values(outfit).every((slot) => (slot as Item[]).length === 0);
 
+  const homeAnimation = useMemo(() => {
+    const animations = [
+      { animate: { rotateX: [0, 360] }, transition: { duration: 5, repeat: Infinity, ease: "linear" } },
+      { animate: { filter: ["blur(0px)", "blur(8px)", "blur(0px)"] }, transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
+      { animate: { letterSpacing: ["0.1em", "0.5em", "0.1em"] }, transition: { duration: 4, repeat: Infinity, ease: "easeInOut" } },
+      { animate: { rotateY: [0, 360] }, transition: { duration: 5, repeat: Infinity, ease: "linear" } },
+      { animate: { y: [0, -15, 0] }, transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
+      { animate: { rotateZ: [-3, 3, -3] }, transition: { duration: 4, repeat: Infinity, ease: "easeInOut" } },
+      { animate: { textShadow: ["0px 0px 0px rgba(255,255,255,0)", "0px 0px 40px rgba(255,255,255,1), 0px 0px 20px rgba(255,255,255,1), 0px 0px 10px rgba(255,255,255,1)", "0px 0px 0px rgba(255,255,255,0)"] }, transition: { duration: 2, repeat: Infinity, ease: "easeInOut" } },
+      { animate: { skewX: [0, -15, 15, 0] }, transition: { duration: 4, repeat: Infinity, ease: "easeInOut" } },
+      { animate: { opacity: [1, 0.2, 1] }, transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
+      { animate: { color: ["#ffffff", "#a855f7", "#3b82f6", "#ffffff"] }, transition: { duration: 5, repeat: Infinity, ease: "linear" } },
+      { animate: { rotateX: [0, 180, 360], rotateY: [0, 180, 360] }, transition: { duration: 6, repeat: Infinity, ease: "linear" } },
+      { animate: { x: [0, -5, 5, -5, 5, 0], y: [0, 5, -5, 5, -5, 0] }, transition: { duration: 0.5, repeat: Infinity, ease: "linear", repeatDelay: 3 } },
+      { animate: { scaleY: [1, 0.5, 1.5, 1] }, transition: { duration: 2, repeat: Infinity, ease: "easeInOut" } }
+    ];
+    return animations[Math.floor(Math.random() * animations.length)];
+  }, [currentView]);
+
   const renderHome = () => (
     <div className="flex flex-col items-center justify-center min-h-[70vh] gap-12">
       <div className="text-center space-y-4">
-        <h2 className="text-4xl font-light tracking-widest uppercase">Your Wardrobe</h2>
-        <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Curate. Build. Save.</p>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.8 }}>
+          <motion.h2 
+            initial={{ letterSpacing: "0.1em" }}
+            {...homeAnimation}
+            className="text-4xl font-light uppercase inline-block"
+          >
+            WARDROBE
+          </motion.h2>
+        </motion.div>
+        <motion.p 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3, duration: 0.8 }}
+          className="text-zinc-500 font-mono text-sm uppercase tracking-widest"
+        >
+          Curate. Build. Save.
+        </motion.p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.8 }}
+        className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl"
+      >
         <button 
           onClick={() => setCurrentView('builder')}
           className="flex flex-col items-center justify-center gap-6 p-12 border border-zinc-800 rounded-3xl bg-zinc-900/20 hover:bg-zinc-900/60 hover:border-zinc-600 transition-all group"
@@ -639,7 +717,7 @@ export default function App() {
           </div>
           <span className="text-sm uppercase tracking-widest font-medium">My Closet</span>
         </button>
-      </div>
+      </motion.div>
     </div>
   );
 
@@ -812,7 +890,7 @@ export default function App() {
             <span className="text-xs text-zinc-600 font-mono">{savedFits.length} SAVED</span>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             {savedFits.length > 0 && itemsInFits.length > 0 && (
               <div className="flex items-center gap-3">
                 <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Filter by Item:</span>
@@ -825,6 +903,37 @@ export default function App() {
                   {itemsInFits.map(item => (
                     <option key={item.id} value={item.id}>{item.title}</option>
                   ))}
+                </select>
+              </div>
+            )}
+            
+            {savedFits.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Weather:</span>
+                <select 
+                  value={fitSortWeather} 
+                  onChange={(e) => setFitSortWeather(e.target.value as any)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100"
+                >
+                  <option value="all">All</option>
+                  <option value="hot">Hot</option>
+                  <option value="medium">Medium</option>
+                  <option value="cold">Cold</option>
+                </select>
+              </div>
+            )}
+            
+            {savedFits.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Rain:</span>
+                <select 
+                  value={fitSortRain} 
+                  onChange={(e) => setFitSortRain(e.target.value as any)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100"
+                >
+                  <option value="all">All</option>
+                  <option value="rain">Rain</option>
+                  <option value="no-rain">No Rain</option>
                 </select>
               </div>
             )}
@@ -882,7 +991,15 @@ export default function App() {
                     style={{ pointerEvents: Math.abs(offset) > 1 ? 'none' : 'auto' }}
                   >
                     <div className="flex items-center justify-between w-full max-w-3xl px-8">
-                      <h3 className="text-2xl font-light tracking-widest uppercase">{fit.name}</h3>
+                      <div className="flex flex-col gap-2">
+                        <h3 className="text-2xl font-light tracking-widest uppercase">{fit.name}</h3>
+                        <div className="flex items-center gap-2 text-zinc-500">
+                          {fit.weather === 'hot' && <ThermometerSun size={16} className="text-red-400/70" />}
+                          {fit.weather === 'medium' && <Thermometer size={16} className="text-zinc-400/70" />}
+                          {fit.weather === 'cold' && <ThermometerSnowflake size={16} className="text-blue-400/70" />}
+                          {fit.rain && <CloudRain size={16} className="text-blue-400/70" />}
+                        </div>
+                      </div>
                       <div className="flex items-center gap-4">
                         <span className="text-xs text-zinc-500 font-mono">
                           {index + 1} / {displayedFits.length}
@@ -947,41 +1064,37 @@ export default function App() {
                 className={`flex flex-col gap-4 p-4 border border-zinc-900 rounded-2xl bg-zinc-950/50 hover:border-zinc-700 transition-colors group ${fitFilterItemId === 'All' ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedFitId === fit.id ? 'opacity-50 border-zinc-500' : ''}`}
               >
                 <FitCollage outfit={fit.outfit} onClick={() => setPreviewFit(fit)} />
-                <div className="flex items-center justify-between">
-                  {renamingFitId === fit.id ? (
-                    <input
-                      type="text"
-                      value={renamingFitName}
-                      onChange={(e) => setRenamingFitName(e.target.value)}
-                      onBlur={() => handleSaveRename(fit)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSaveRename(fit)}
-                      autoFocus
-                      className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm text-white focus:outline-none focus:border-zinc-500 w-full mr-2"
-                    />
-                  ) : (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 overflow-hidden pr-2">
                       <span className="text-sm font-medium tracking-wide truncate">{fit.name}</span>
                       <button 
-                        onClick={() => handleStartRename(fit)}
+                        onClick={() => handleStartEditMetadata(fit)}
                         className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                       >
                         <Edit3 size={12} />
                       </button>
                     </div>
-                  )}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button 
-                      onClick={() => handleLoadFit(fit)} 
-                      className="text-[10px] uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-full hover:bg-zinc-800"
-                    >
-                      Load
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteFit(fit.id)} 
-                      className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button 
+                        onClick={() => handleLoadFit(fit)} 
+                        className="text-[10px] uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-full hover:bg-zinc-800"
+                      >
+                        Load
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteFit(fit.id)} 
+                        className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-zinc-500">
+                    {fit.weather === 'hot' && <ThermometerSun size={14} className="text-red-400/70" />}
+                    {fit.weather === 'medium' && <Thermometer size={14} className="text-zinc-400/70" />}
+                    {fit.weather === 'cold' && <ThermometerSnowflake size={14} className="text-blue-400/70" />}
+                    {fit.rain && <CloudRain size={14} className="text-blue-400/70" />}
                   </div>
                 </div>
               </motion.div>
@@ -1042,7 +1155,15 @@ export default function App() {
           
           <div className="w-full max-w-4xl relative flex flex-col gap-8 my-auto pt-16 pb-8">
             <div className="flex items-center justify-between w-full max-w-3xl mx-auto">
-              <h3 className="text-2xl font-light tracking-widest uppercase">{previewFit.name}</h3>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-2xl font-light tracking-widest uppercase">{previewFit.name}</h3>
+                <div className="flex items-center gap-2 text-zinc-500">
+                  {previewFit.weather === 'hot' && <ThermometerSun size={16} className="text-red-400/70" />}
+                  {previewFit.weather === 'medium' && <Thermometer size={16} className="text-zinc-400/70" />}
+                  {previewFit.weather === 'cold' && <ThermometerSnowflake size={16} className="text-blue-400/70" />}
+                  {previewFit.rain && <CloudRain size={16} className="text-blue-400/70" />}
+                </div>
+              </div>
               <button 
                 onClick={() => {
                   handleLoadFit(previewFit);
@@ -1151,28 +1272,58 @@ export default function App() {
             
             <h3 className="text-lg font-light tracking-widest uppercase mb-6">Save Fit</h3>
             
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
               <input 
                 type="text" 
                 value={fitName} 
                 onChange={e => setFitName(e.target.value)} 
-                placeholder="Fit Name (e.g., Summer Night Out)" 
+                placeholder="Fit Name (Optional)" 
                 className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 transition-colors text-zinc-100 placeholder:text-zinc-600" 
                 autoFocus
               />
+              
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs text-zinc-500 uppercase tracking-widest font-mono">Weather</label>
+                  <span className="text-xs font-medium text-zinc-300 uppercase tracking-widest">{fitWeather}</span>
+                </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="2" 
+                  step="1"
+                  value={fitWeather === 'cold' ? 0 : fitWeather === 'medium' ? 1 : 2}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setFitWeather(val === 0 ? 'cold' : val === 1 ? 'medium' : 'hot');
+                  }}
+                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-400"
+                />
+                <div className="flex justify-between text-[10px] text-zinc-600 uppercase tracking-widest font-mono">
+                  <span>Cold</span>
+                  <span>Medium</span>
+                  <span>Hot</span>
+                </div>
+              </div>
+              
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${fitRain ? 'bg-blue-500 border-blue-500' : 'bg-zinc-900 border-zinc-700 group-hover:border-zinc-500'}`}>
+                  {fitRain && <CheckCircle2 size={14} className="text-white" />}
+                </div>
+                <span className="text-sm text-zinc-300 group-hover:text-white transition-colors">Suitable for Rain</span>
+              </label>
+
               {editingFitId ? (
-                <div className="flex gap-3">
+                <div className="flex gap-3 mt-2">
                   <button 
                     onClick={() => handleSaveFit(false)} 
-                    disabled={!fitName.trim()}
-                    className="flex-1 bg-zinc-800 text-zinc-100 font-medium py-3 rounded-lg hover:bg-zinc-700 transition-colors uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-zinc-800 text-zinc-100 font-medium py-3 rounded-lg hover:bg-zinc-700 transition-colors uppercase tracking-widest text-xs"
                   >
                     Save as New
                   </button>
                   <button 
                     onClick={() => handleSaveFit(true)} 
-                    disabled={!fitName.trim()}
-                    className="flex-1 bg-zinc-100 text-zinc-950 font-medium py-3 rounded-lg hover:bg-white transition-colors uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-zinc-100 text-zinc-950 font-medium py-3 rounded-lg hover:bg-white transition-colors uppercase tracking-widest text-xs"
                   >
                     Update Fit
                   </button>
@@ -1180,12 +1331,79 @@ export default function App() {
               ) : (
                 <button 
                   onClick={() => handleSaveFit(false)} 
-                  disabled={!fitName.trim()}
-                  className="w-full bg-zinc-100 text-zinc-950 font-medium py-3 rounded-lg hover:bg-white transition-colors uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-zinc-100 text-zinc-950 font-medium py-3 rounded-lg hover:bg-white transition-colors uppercase tracking-widest text-xs mt-2"
                 >
                   Save
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Fit Metadata Modal */}
+      {editingFitMetadata && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-8 w-full max-w-sm relative shadow-2xl">
+            <button
+              onClick={() => setEditingFitMetadata(null)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-100 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            
+            <h3 className="text-lg font-light tracking-widest uppercase mb-6">Edit Fit Details</h3>
+            
+            <div className="flex flex-col gap-6">
+              <input 
+                type="text" 
+                value={editingFitName} 
+                onChange={e => setEditingFitName(e.target.value)} 
+                placeholder="Fit Name (Optional)" 
+                className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 transition-colors text-zinc-100 placeholder:text-zinc-600" 
+                autoFocus
+              />
+              
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-widest text-zinc-500">Weather</label>
+                <input 
+                  type="range" 
+                  min="0" 
+                  max="2" 
+                  step="1"
+                  value={editingFitWeather === 'cold' ? 0 : editingFitWeather === 'medium' ? 1 : 2}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setEditingFitWeather(val === 0 ? 'cold' : val === 1 ? 'medium' : 'hot');
+                  }}
+                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-400"
+                />
+                <div className="flex justify-between text-[10px] text-zinc-600 uppercase tracking-widest font-mono">
+                  <span>Cold</span>
+                  <span>Medium</span>
+                  <span>Hot</span>
+                </div>
+              </div>
+              
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${editingFitRain ? 'bg-blue-500 border-blue-500' : 'bg-zinc-900 border-zinc-700 group-hover:border-zinc-500'}`}>
+                  {editingFitRain && <CheckCircle2 size={14} className="text-white" />}
+                </div>
+                <input 
+                  type="checkbox" 
+                  className="hidden" 
+                  checked={editingFitRain} 
+                  onChange={(e) => setEditingFitRain(e.target.checked)} 
+                />
+                <span className="text-sm text-zinc-300 group-hover:text-white transition-colors">Suitable for Rain</span>
+              </label>
+
+              <button 
+                onClick={handleSaveMetadata} 
+                className="w-full bg-zinc-100 text-zinc-950 font-medium py-3 rounded-lg hover:bg-white transition-colors uppercase tracking-widest text-xs mt-2"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>

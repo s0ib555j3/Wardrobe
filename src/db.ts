@@ -25,6 +25,8 @@ export type DBSavedFit = {
   name: string;
   outfit: DBOutfit;
   order?: number;
+  weather?: 'hot' | 'medium' | 'cold';
+  rain?: boolean;
 };
 
 interface WardrobeDB extends DBSchema {
