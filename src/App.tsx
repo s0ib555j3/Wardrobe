@@ -228,6 +228,7 @@ export default function App() {
   const [fitFilterItemId, setFitFilterItemId] = useState<string>('All');
   const [fitSortWeather, setFitSortWeather] = useState<'all' | 'hot' | 'medium' | 'cold'>('all');
   const [fitSortRain, setFitSortRain] = useState<'all' | 'rain' | 'no-rain'>('all');
+  const [fitSortOrder, setFitSortOrder] = useState<'custom' | 'name-asc' | 'name-desc'>('custom');
   const [lookbookMode, setLookbookMode] = useState(false);
   const [lookbookIndex, setLookbookIndex] = useState(0);
   const [lookbookDirection, setLookbookDirection] = useState(0);
@@ -236,7 +237,15 @@ export default function App() {
   const displayedFits = savedFits
     .filter(fit => fitFilterItemId === 'All' || Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId)))
     .filter(fit => fitSortWeather === 'all' || fit.weather === fitSortWeather)
-    .filter(fit => fitSortRain === 'all' || (fitSortRain === 'rain' ? fit.rain : !fit.rain));
+    .filter(fit => fitSortRain === 'all' || (fitSortRain === 'rain' ? fit.rain : !fit.rain))
+    .sort((a, b) => {
+      if (fitSortOrder === 'name-asc') {
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+      } else if (fitSortOrder === 'name-desc') {
+        return b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' });
+      }
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
 
   useEffect(() => {
     async function loadData() {
@@ -646,12 +655,9 @@ export default function App() {
       { animate: { rotateY: [0, 360] }, transition: { duration: 5, repeat: Infinity, ease: "linear" } },
       { animate: { y: [0, -15, 0] }, transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
       { animate: { rotateZ: [-3, 3, -3] }, transition: { duration: 4, repeat: Infinity, ease: "easeInOut" } },
-      { animate: { textShadow: ["0px 0px 0px rgba(255,255,255,0)", "0px 0px 40px rgba(255,255,255,1), 0px 0px 20px rgba(255,255,255,1), 0px 0px 10px rgba(255,255,255,1)", "0px 0px 0px rgba(255,255,255,0)"] }, transition: { duration: 2, repeat: Infinity, ease: "easeInOut" } },
-      { animate: { skewX: [0, -15, 15, 0] }, transition: { duration: 4, repeat: Infinity, ease: "easeInOut" } },
+      { animate: { textShadow: ["0px 0px 10px rgba(255,255,255,0.4)", "0px 0px 40px rgba(255,255,255,1), 0px 0px 20px rgba(255,255,255,0.8), 0px 0px 10px rgba(255,255,255,0.6)", "0px 0px 10px rgba(255,255,255,0.4)"] }, transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
       { animate: { opacity: [1, 0.2, 1] }, transition: { duration: 3, repeat: Infinity, ease: "easeInOut" } },
       { animate: { color: ["#ffffff", "#a855f7", "#3b82f6", "#ffffff"] }, transition: { duration: 5, repeat: Infinity, ease: "linear" } },
-      { animate: { rotateX: [0, 180, 360], rotateY: [0, 180, 360] }, transition: { duration: 6, repeat: Infinity, ease: "linear" } },
-      { animate: { x: [0, -5, 5, -5, 5, 0], y: [0, 5, -5, 5, -5, 0] }, transition: { duration: 0.5, repeat: Infinity, ease: "linear", repeatDelay: 3 } },
       { animate: { scaleY: [1, 0.5, 1.5, 1] }, transition: { duration: 2, repeat: Infinity, ease: "easeInOut" } }
     ];
     return animations[Math.floor(Math.random() * animations.length)];
@@ -664,7 +670,7 @@ export default function App() {
           <motion.h2 
             initial={{ letterSpacing: "0.1em" }}
             {...homeAnimation}
-            className="text-4xl font-light uppercase inline-block"
+            className="text-6xl sm:text-7xl md:text-8xl font-light uppercase inline-block"
           >
             WARDROBE
           </motion.h2>
@@ -938,6 +944,21 @@ export default function App() {
               </div>
             )}
             
+            {savedFits.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Sort:</span>
+                <select 
+                  value={fitSortOrder} 
+                  onChange={(e) => setFitSortOrder(e.target.value as any)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100"
+                >
+                  <option value="custom">Custom Order</option>
+                  <option value="name-asc">Name (A-Z)</option>
+                  <option value="name-desc">Name (Z-A)</option>
+                </select>
+              </div>
+            )}
+            
             <button 
               onClick={() => setLookbookMode(!lookbookMode)}
               className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-lg hover:bg-zinc-800"
@@ -963,8 +984,8 @@ export default function App() {
             <p className="font-mono text-sm uppercase tracking-widest">No fits found with this item</p>
           </div>
         ) : lookbookMode ? (
-          <div className="flex flex-col items-center justify-center py-12 relative overflow-hidden min-h-[800px] w-full">
-            <div className="relative w-full max-w-6xl h-[700px] flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center py-4 sm:py-12 relative overflow-hidden min-h-[600px] sm:min-h-[800px] w-full">
+            <div className="relative w-full max-w-6xl h-[500px] sm:h-[700px] flex items-center justify-center">
               {displayedFits.map((fit, index) => {
                 const offset = getCarouselOffset(index, lookbookIndex, displayedFits.length);
                 const isCurrent = offset === 0;
@@ -987,12 +1008,12 @@ export default function App() {
                         setLookbookIndex(index);
                       }
                     }}
-                    className={`absolute w-full max-w-3xl flex flex-col gap-8 items-center ${isCurrent ? 'pointer-events-auto' : 'pointer-events-auto cursor-pointer'}`}
+                    className={`absolute w-full max-w-3xl flex flex-col gap-4 sm:gap-8 items-center ${isCurrent ? 'pointer-events-auto' : 'pointer-events-auto cursor-pointer'}`}
                     style={{ pointerEvents: Math.abs(offset) > 1 ? 'none' : 'auto' }}
                   >
-                    <div className="flex items-center justify-between w-full max-w-3xl px-8">
-                      <div className="flex flex-col gap-2">
-                        <h3 className="text-2xl font-light tracking-widest uppercase">{fit.name}</h3>
+                    <div className="flex items-center justify-between w-full max-w-3xl px-4 sm:px-8">
+                      <div className="flex flex-col gap-1 sm:gap-2">
+                        <h3 className="text-xl sm:text-2xl font-light tracking-widest uppercase">{fit.name}</h3>
                         <div className="flex items-center gap-2 text-zinc-500">
                           {fit.weather === 'hot' && <ThermometerSun size={16} className="text-red-400/70" />}
                           {fit.weather === 'medium' && <Thermometer size={16} className="text-zinc-400/70" />}
@@ -1000,8 +1021,8 @@ export default function App() {
                           {fit.rain && <CloudRain size={16} className="text-blue-400/70" />}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-xs text-zinc-500 font-mono">
+                      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                        <span className="text-[10px] sm:text-xs text-zinc-500 font-mono">
                           {index + 1} / {displayedFits.length}
                         </span>
                         <button 
@@ -1009,14 +1030,14 @@ export default function App() {
                             e.stopPropagation();
                             handleLoadFit(fit);
                           }} 
-                          className="text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-4 py-2 border border-zinc-800 rounded-full hover:bg-zinc-800"
+                          className="text-[10px] sm:text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 sm:px-4 py-1.5 sm:py-2 border border-zinc-800 rounded-full hover:bg-zinc-800"
                           tabIndex={isCurrent ? 0 : -1}
                         >
-                          Load in Builder
+                          Load
                         </button>
                       </div>
                     </div>
-                    <div className={isCurrent ? '' : 'pointer-events-none'}>
+                    <div className={`w-full transform origin-top scale-[0.6] sm:scale-75 md:scale-90 lg:scale-100 ${isCurrent ? '' : 'pointer-events-none'}`}>
                       <FitLayoutPreview outfit={fit.outfit} />
                     </div>
                   </motion.div>
