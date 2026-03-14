@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, ArrowRight, Database, CheckCircle2, XCircle, Loader2, Edit2, Edit3, BookOpen, ThermometerSun, Thermometer, ThermometerSnowflake, CloudRain } from 'lucide-react';
+import { Plus, Trash2, Upload, X, Save, LayoutGrid, Image as ImageIcon, Shirt, ArrowLeft, ArrowRight, Database, CheckCircle2, XCircle, Loader2, Edit2, Edit3, BookOpen, ThermometerSun, Thermometer, ThermometerSnowflake, CloudRain, Dices } from 'lucide-react';
 import { getItems, getItem, addItem as addItemDB, deleteItem as deleteItemDB, getFits, addFit as addFitDB, deleteFit as deleteFitDB, DBSavedFit } from './db';
 import { motion, AnimatePresence } from 'motion/react';
+import { Autocomplete } from './components/Autocomplete';
 
 const MAIN_CATEGORIES = [
   'Outerwear',
@@ -44,11 +45,25 @@ type Outfit = {
 type SavedFit = {
   id: string;
   name: string;
+  styleCategory?: string;
   outfit: Outfit;
   order: number;
   weather?: 'hot' | 'medium' | 'cold';
   rain?: boolean;
 };
+
+const LEXICON = [
+  "Rockhopper Penguin", "Cardamom", "Snow Leopard", "Fennec Fox", "Red Panda",
+  "Monstera", "Eucalyptus", "Axolotl", "Pangolin", "Capybara", "Bonsai",
+  "Orchid", "Mantis Shrimp", "Tardigrade", "Cactus", "Bamboo", "Kangaroo",
+  "Koala", "Platypus", "Wombat", "Echidna", "Cassowary", "Kookaburra",
+  "Quokka", "Tasmanian Devil", "Dingo", "Wallaby", "Numbat", "Quoll",
+  "Macadamia", "Baobab", "Sequoia", "Ginkgo", "Lotus", "Water Lily",
+  "Sunflower", "Dandelion", "Lavender", "Rosemary", "Thyme", "Sage",
+  "Basil", "Mint", "Coriander", "Parsley", "Chives", "Dill", "Fennel",
+  "Tarragon", "Oregano", "Marjoram", "Lemongrass", "Chamomile", "Jasmine"
+];
+const generateRandomName = () => LEXICON[Math.floor(Math.random() * LEXICON.length)];
 
 type SlotKey = keyof Outfit;
 
@@ -154,30 +169,50 @@ const FitCollage = ({ outfit, onClick }: { outfit: Outfit, onClick?: () => void 
   );
 };
 
-const FitLayoutPreview = ({ outfit }: { outfit: Outfit }) => (
-  <div className="flex flex-row justify-center gap-4 sm:gap-6 w-full max-w-3xl mx-auto">
-    {/* Left Column */}
-    <div className="flex flex-col gap-4 sm:gap-6 w-24 sm:w-32 pt-16 sm:pt-24">
-      <Slot label="Accessories" slotKey="accessories" items={outfit.accessories} readOnly />
-      <Slot label="L. Arm" slotKey="leftArm" items={outfit.leftArm} readOnly />
-      <Slot label="Watch" slotKey="watch" items={outfit.watch} readOnly />
+const FitLayoutPreview = ({ outfit, size = 'md' }: { outfit: Outfit, size?: 'sm' | 'md' | 'lg' }) => {
+  const containerClasses = {
+    sm: "gap-2 sm:gap-3 md:gap-4",
+    md: "gap-2 sm:gap-4 md:gap-6",
+    lg: "gap-4 sm:gap-6 md:gap-8"
+  };
+  
+  const sideColClasses = {
+    sm: "gap-2 sm:gap-3 md:gap-4 w-14 sm:w-16 md:w-20 pt-8 sm:pt-12 md:pt-16",
+    md: "gap-2 sm:gap-4 md:gap-6 w-16 sm:w-20 md:w-24 pt-10 sm:pt-16 md:pt-20",
+    lg: "gap-4 sm:gap-6 md:gap-8 w-24 sm:w-32 md:w-40 pt-16 sm:pt-24 md:pt-32"
+  };
+  
+  const centerColClasses = {
+    sm: "gap-2 sm:gap-3 md:gap-4 w-20 sm:w-24 md:w-28",
+    md: "gap-2 sm:gap-4 md:gap-6 w-24 sm:w-28 md:w-32",
+    lg: "gap-4 sm:gap-6 md:gap-8 w-32 sm:w-48 md:w-56"
+  };
+
+  return (
+    <div className={`flex flex-row justify-center w-full max-w-3xl mx-auto ${containerClasses[size]}`}>
+      {/* Left Column */}
+      <div className={`flex flex-col ${sideColClasses[size]}`}>
+        <Slot label="Accessories" slotKey="accessories" items={outfit.accessories} readOnly />
+        <Slot label="L. Arm" slotKey="leftArm" items={outfit.leftArm} readOnly />
+        <Slot label="Watch" slotKey="watch" items={outfit.watch} readOnly />
+      </div>
+      
+      {/* Center Column */}
+      <div className={`flex flex-col ${centerColClasses[size]}`}>
+        <Slot label="Headwear" slotKey="headwear" items={outfit.headwear} readOnly />
+        <Slot label="Top / Outerwear" slotKey="top" items={outfit.top} className="aspect-[3/4]" readOnly />
+        <Slot label="Bottom" slotKey="bottom" items={outfit.bottom} readOnly />
+        <Slot label="Footwear" slotKey="footwear" items={outfit.footwear} readOnly />
+      </div>
+      
+      {/* Right Column */}
+      <div className={`flex flex-col ${sideColClasses[size]}`}>
+        <Slot label="Eyewear" slotKey="eyewear" items={outfit.eyewear} readOnly />
+        <Slot label="R. Arm" slotKey="rightArm" items={outfit.rightArm} readOnly />
+      </div>
     </div>
-    
-    {/* Center Column */}
-    <div className="flex flex-col gap-4 sm:gap-6 w-32 sm:w-48">
-      <Slot label="Headwear" slotKey="headwear" items={outfit.headwear} readOnly />
-      <Slot label="Top / Outerwear" slotKey="top" items={outfit.top} className="aspect-[3/4]" readOnly />
-      <Slot label="Bottom" slotKey="bottom" items={outfit.bottom} readOnly />
-      <Slot label="Footwear" slotKey="footwear" items={outfit.footwear} readOnly />
-    </div>
-    
-    {/* Right Column */}
-    <div className="flex flex-col gap-4 sm:gap-6 w-24 sm:w-32 pt-16 sm:pt-24">
-      <Slot label="Eyewear" slotKey="eyewear" items={outfit.eyewear} readOnly />
-      <Slot label="R. Arm" slotKey="rightArm" items={outfit.rightArm} readOnly />
-    </div>
-  </div>
-);
+  );
+};
 
 const getCarouselOffset = (index: number, currentIndex: number, length: number) => {
   let diff = index - currentIndex;
@@ -213,6 +248,7 @@ export default function App() {
   // Save Fit State
   const [isSavingFit, setIsSavingFit] = useState(false);
   const [fitName, setFitName] = useState('');
+  const [fitStyleCategory, setFitStyleCategory] = useState('');
   const [fitWeather, setFitWeather] = useState<'hot' | 'medium' | 'cold'>('medium');
   const [fitRain, setFitRain] = useState(false);
   const [editingFitId, setEditingFitId] = useState<string | null>(null);
@@ -220,12 +256,14 @@ export default function App() {
   // Rename Fit State
   const [editingFitMetadata, setEditingFitMetadata] = useState<SavedFit | null>(null);
   const [editingFitName, setEditingFitName] = useState('');
+  const [editingFitStyleCategory, setEditingFitStyleCategory] = useState('');
   const [editingFitWeather, setEditingFitWeather] = useState<'hot' | 'medium' | 'cold'>('medium');
   const [editingFitRain, setEditingFitRain] = useState(false);
 
   const [draggedItem, setDraggedItem] = useState<Item | null>(null);
   const [draggedFitId, setDraggedFitId] = useState<string | null>(null);
   const [fitFilterItemId, setFitFilterItemId] = useState<string>('All');
+  const [fitFilterStyle, setFitFilterStyle] = useState<string>('All');
   const [fitSortWeather, setFitSortWeather] = useState<'all' | 'hot' | 'medium' | 'cold'>('all');
   const [fitSortRain, setFitSortRain] = useState<'all' | 'rain' | 'no-rain'>('all');
   const [fitSortOrder, setFitSortOrder] = useState<'custom' | 'name-asc' | 'name-desc'>('custom');
@@ -238,6 +276,7 @@ export default function App() {
     .filter(fit => fitFilterItemId === 'All' || Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId)))
     .filter(fit => fitSortWeather === 'all' || fit.weather === fitSortWeather)
     .filter(fit => fitSortRain === 'all' || (fitSortRain === 'rain' ? fit.rain : !fit.rain))
+    .filter(fit => fitFilterStyle === 'All' || fit.styleCategory === fitFilterStyle)
     .sort((a, b) => {
       if (fitSortOrder === 'name-asc') {
         return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
@@ -480,7 +519,8 @@ export default function App() {
   };
 
   const handleSaveFit = async (updateExisting: boolean = false) => {
-    const finalName = fitName.trim() || 'Untitled Fit';
+    const finalName = fitName.trim() || generateRandomName();
+    const finalStyleCategory = fitStyleCategory.trim() || 'Uncategorized';
     const id = (updateExisting && editingFitId) ? editingFitId : Math.random().toString(36).substring(7);
     const newOrder = (updateExisting && editingFitId) 
       ? savedFits.find(f => f.id === id)?.order ?? savedFits.length 
@@ -489,6 +529,7 @@ export default function App() {
     const newFit: SavedFit = {
       id,
       name: finalName,
+      styleCategory: finalStyleCategory,
       order: newOrder,
       weather: fitWeather,
       rain: fitRain,
@@ -498,6 +539,7 @@ export default function App() {
     const dbFit: DBSavedFit = {
       id,
       name: newFit.name,
+      styleCategory: newFit.styleCategory,
       order: newOrder,
       weather: fitWeather,
       rain: fitRain,
@@ -594,6 +636,7 @@ export default function App() {
   const handleStartEditMetadata = (fit: SavedFit) => {
     setEditingFitMetadata(fit);
     setEditingFitName(fit.name === 'Untitled Fit' ? '' : fit.name);
+    setEditingFitStyleCategory(fit.styleCategory || '');
     setEditingFitWeather(fit.weather || 'medium');
     setEditingFitRain(fit.rain || false);
   };
@@ -601,11 +644,13 @@ export default function App() {
   const handleSaveMetadata = async () => {
     if (!editingFitMetadata) return;
     
-    const finalName = editingFitName.trim() || 'Untitled Fit';
+    const finalName = editingFitName.trim() || generateRandomName();
+    const finalStyleCategory = editingFitStyleCategory.trim() || 'Uncategorized';
     
     const updatedFit = { 
       ...editingFitMetadata, 
       name: finalName,
+      styleCategory: finalStyleCategory,
       weather: editingFitWeather,
       rain: editingFitRain
     };
@@ -614,6 +659,7 @@ export default function App() {
       await addFitDB({
         id: updatedFit.id,
         name: updatedFit.name,
+        styleCategory: updatedFit.styleCategory,
         order: updatedFit.order,
         weather: updatedFit.weather,
         rain: updatedFit.rain,
@@ -841,7 +887,10 @@ export default function App() {
           <div className="flex items-center gap-4">
             <span className="text-xs text-zinc-600 font-mono hidden sm:inline-block">DRAG & DROP</span>
             <button 
-              onClick={() => setIsSavingFit(true)}
+              onClick={() => {
+                setIsSavingFit(true);
+                if (!fitName) setFitName(generateRandomName());
+              }}
               disabled={isOutfitEmpty}
               className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-300 hover:text-white transition-colors border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-zinc-900 disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -908,6 +957,22 @@ export default function App() {
                   <option value="All">All Items</option>
                   {itemsInFits.map(item => (
                     <option key={item.id} value={item.id}>{item.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            {savedFits.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Style:</span>
+                <select 
+                  value={fitFilterStyle} 
+                  onChange={(e) => setFitFilterStyle(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100"
+                >
+                  <option value="All">All Styles</option>
+                  {Array.from(new Set(savedFits.map(f => f.styleCategory).filter(Boolean))).map(style => (
+                    <option key={style} value={style}>{style}</option>
                   ))}
                 </select>
               </div>
@@ -984,8 +1049,8 @@ export default function App() {
             <p className="font-mono text-sm uppercase tracking-widest">No fits found with this item</p>
           </div>
         ) : lookbookMode ? (
-          <div className="flex flex-col items-center justify-center py-4 sm:py-12 relative overflow-hidden min-h-[600px] sm:min-h-[800px] w-full">
-            <div className="relative w-full max-w-6xl h-[500px] sm:h-[700px] flex items-center justify-center">
+          <div className="flex flex-col items-center justify-center py-4 sm:py-8 relative overflow-hidden min-h-[650px] sm:min-h-[750px] md:min-h-[800px] w-full">
+            <div className="relative w-full max-w-6xl h-[550px] sm:h-[650px] md:h-[700px] flex items-center justify-center">
               {displayedFits.map((fit, index) => {
                 const offset = getCarouselOffset(index, lookbookIndex, displayedFits.length);
                 const isCurrent = offset === 0;
@@ -1013,7 +1078,12 @@ export default function App() {
                   >
                     <div className="flex items-center justify-between w-full max-w-3xl px-4 sm:px-8">
                       <div className="flex flex-col gap-1 sm:gap-2">
-                        <h3 className="text-xl sm:text-2xl font-light tracking-widest uppercase">{fit.name}</h3>
+                        <div className="flex flex-col">
+                          {fit.styleCategory && (
+                            <span className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">{fit.styleCategory}</span>
+                          )}
+                          <h3 className="text-xl sm:text-2xl font-light tracking-widest uppercase">{fit.name}</h3>
+                        </div>
                         <div className="flex items-center gap-2 text-zinc-500">
                           {fit.weather === 'hot' && <ThermometerSun size={16} className="text-red-400/70" />}
                           {fit.weather === 'medium' && <Thermometer size={16} className="text-zinc-400/70" />}
@@ -1037,8 +1107,8 @@ export default function App() {
                         </button>
                       </div>
                     </div>
-                    <div className={`w-full transform origin-top scale-[0.6] sm:scale-75 md:scale-90 lg:scale-100 ${isCurrent ? '' : 'pointer-events-none'}`}>
-                      <FitLayoutPreview outfit={fit.outfit} />
+                    <div className={`w-full ${isCurrent ? '' : 'pointer-events-none'}`}>
+                      <FitLayoutPreview outfit={fit.outfit} size="sm" />
                     </div>
                   </motion.div>
                 );
@@ -1087,14 +1157,19 @@ export default function App() {
                 <FitCollage outfit={fit.outfit} onClick={() => setPreviewFit(fit)} />
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 overflow-hidden pr-2">
-                      <span className="text-sm font-medium tracking-wide truncate">{fit.name}</span>
-                      <button 
-                        onClick={() => handleStartEditMetadata(fit)}
-                        className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                      >
-                        <Edit3 size={12} />
-                      </button>
+                    <div className="flex flex-col overflow-hidden pr-2">
+                      {fit.styleCategory && (
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest leading-none mb-1">{fit.styleCategory}</span>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium tracking-wide truncate">{fit.name}</span>
+                        <button 
+                          onClick={() => handleStartEditMetadata(fit)}
+                          className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                        >
+                          <Edit3 size={12} />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button 
@@ -1177,7 +1252,12 @@ export default function App() {
           <div className="w-full max-w-4xl relative flex flex-col gap-8 my-auto pt-16 pb-8">
             <div className="flex items-center justify-between w-full max-w-3xl mx-auto">
               <div className="flex flex-col gap-2">
-                <h3 className="text-2xl font-light tracking-widest uppercase">{previewFit.name}</h3>
+                <div className="flex flex-col">
+                  {previewFit.styleCategory && (
+                    <span className="text-xs text-zinc-500 uppercase tracking-widest mb-1">{previewFit.styleCategory}</span>
+                  )}
+                  <h3 className="text-2xl font-light tracking-widest uppercase">{previewFit.name}</h3>
+                </div>
                 <div className="flex items-center gap-2 text-zinc-500">
                   {previewFit.weather === 'hot' && <ThermometerSun size={16} className="text-red-400/70" />}
                   {previewFit.weather === 'medium' && <Thermometer size={16} className="text-zinc-400/70" />}
@@ -1196,7 +1276,7 @@ export default function App() {
               </button>
             </div>
             
-            <FitLayoutPreview outfit={previewFit.outfit} />
+            <FitLayoutPreview outfit={previewFit.outfit} size="md" />
           </div>
         </div>
       )}
@@ -1294,14 +1374,36 @@ export default function App() {
             <h3 className="text-lg font-light tracking-widest uppercase mb-6">Save Fit</h3>
             
             <div className="flex flex-col gap-6">
-              <input 
-                type="text" 
-                value={fitName} 
-                onChange={e => setFitName(e.target.value)} 
-                placeholder="Fit Name (Optional)" 
-                className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 transition-colors text-zinc-100 placeholder:text-zinc-600" 
-                autoFocus
-              />
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-widest text-zinc-500">Style / Category</label>
+                <Autocomplete
+                  value={fitStyleCategory}
+                  onChange={setFitStyleCategory}
+                  options={Array.from(new Set(savedFits.map(f => f.styleCategory).filter(Boolean))) as string[]}
+                  placeholder="e.g. Casual, Formal..."
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-widest text-zinc-500">Fit Name</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    value={fitName} 
+                    onChange={e => setFitName(e.target.value)} 
+                    placeholder="Fit Name" 
+                    className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 transition-colors text-zinc-100 placeholder:text-zinc-600" 
+                  />
+                  <button
+                    onClick={() => setFitName(generateRandomName())}
+                    className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-colors text-zinc-400 hover:text-white flex items-center justify-center"
+                    title="Reroll random name"
+                  >
+                    <Dices size={18} />
+                  </button>
+                </div>
+              </div>
               
               <div className="flex flex-col gap-3">
                 <div className="flex justify-between items-center">
@@ -1376,14 +1478,36 @@ export default function App() {
             <h3 className="text-lg font-light tracking-widest uppercase mb-6">Edit Fit Details</h3>
             
             <div className="flex flex-col gap-6">
-              <input 
-                type="text" 
-                value={editingFitName} 
-                onChange={e => setEditingFitName(e.target.value)} 
-                placeholder="Fit Name (Optional)" 
-                className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 transition-colors text-zinc-100 placeholder:text-zinc-600" 
-                autoFocus
-              />
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-widest text-zinc-500">Style Category</label>
+                <Autocomplete
+                  value={editingFitStyleCategory}
+                  onChange={setEditingFitStyleCategory}
+                  options={Array.from(new Set(savedFits.map(f => f.styleCategory).filter(Boolean))) as string[]}
+                  placeholder="e.g. Casual, Formal, Streetwear"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs uppercase tracking-widest text-zinc-500">Fit Name</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="text" 
+                    value={editingFitName} 
+                    onChange={e => setEditingFitName(e.target.value)} 
+                    placeholder="Fit Name (Optional)" 
+                    className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-zinc-600 transition-colors text-zinc-100 placeholder:text-zinc-600 flex-1" 
+                    autoFocus
+                  />
+                  <button 
+                    onClick={() => setEditingFitName(generateRandomName())}
+                    className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-100 hover:border-zinc-600 transition-colors shrink-0"
+                    title="Reroll random name"
+                  >
+                    <Dices size={18} />
+                  </button>
+                </div>
+              </div>
               
               <div className="flex flex-col gap-2">
                 <label className="text-xs uppercase tracking-widest text-zinc-500">Weather</label>

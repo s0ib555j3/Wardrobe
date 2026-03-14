@@ -23,6 +23,7 @@ export type DBOutfit = {
 export type DBSavedFit = {
   id: string;
   name: string;
+  styleCategory?: string;
   outfit: DBOutfit;
   order?: number;
   weather?: 'hot' | 'medium' | 'cold';
