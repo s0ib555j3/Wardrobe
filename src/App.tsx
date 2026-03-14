@@ -48,22 +48,37 @@ type SavedFit = {
   styleCategory?: string;
   outfit: Outfit;
   order: number;
-  weather?: 'hot' | 'medium' | 'cold';
+  weather?: ('hot' | 'medium' | 'cold')[] | 'hot' | 'medium' | 'cold';
   rain?: boolean;
 };
 
-const LEXICON = [
-  "Rockhopper Penguin", "Cardamom", "Snow Leopard", "Fennec Fox", "Red Panda",
-  "Monstera", "Eucalyptus", "Axolotl", "Pangolin", "Capybara", "Bonsai",
-  "Orchid", "Mantis Shrimp", "Tardigrade", "Cactus", "Bamboo", "Kangaroo",
-  "Koala", "Platypus", "Wombat", "Echidna", "Cassowary", "Kookaburra",
-  "Quokka", "Tasmanian Devil", "Dingo", "Wallaby", "Numbat", "Quoll",
-  "Macadamia", "Baobab", "Sequoia", "Ginkgo", "Lotus", "Water Lily",
-  "Sunflower", "Dandelion", "Lavender", "Rosemary", "Thyme", "Sage",
-  "Basil", "Mint", "Coriander", "Parsley", "Chives", "Dill", "Fennel",
-  "Tarragon", "Oregano", "Marjoram", "Lemongrass", "Chamomile", "Jasmine"
+const PLANT_LEXICON = [
+  "Tamarack", "Aconite", "Monstera", "Eucalyptus", "Bonsai", "Orchid", "Cactus", 
+  "Bamboo", "Sequoia", "Ginkgo", "Lotus", "Sunflower", "Dandelion", "Lavender", 
+  "Rosemary", "Thyme", "Sage", "Basil", "Mint", "Coriander", "Parsley", "Chives", 
+  "Dill", "Fennel", "Tarragon", "Oregano", "Marjoram", "Lemongrass", "Chamomile", 
+  "Jasmine", "Fern", "Moss", "Ivy", "Willow", "Oak", "Maple", "Pine", "Cedar", 
+  "Birch", "Ash", "Elm", "Poplar", "Aspen", "Alder", "Beech", "Chestnut", "Hickory", 
+  "Walnut", "Pecan", "Sycamore", "Magnolia", "Dogwood", "Redbud", "Hawthorn", 
+  "Holly", "Juniper", "Yew", "Cypress", "Hemlock", "Spruce", "Fir", "Larch"
 ];
-const generateRandomName = () => LEXICON[Math.floor(Math.random() * LEXICON.length)];
+
+const ANIMAL_LEXICON = [
+  "Ocelot", "Kudu", "Penguin", "Leopard", "Fox", "Panda", "Axolotl", "Pangolin", 
+  "Capybara", "Shrimp", "Tardigrade", "Kangaroo", "Koala", "Platypus", "Wombat", 
+  "Echidna", "Cassowary", "Kookaburra", "Quokka", "Devil", "Dingo", "Wallaby", 
+  "Numbat", "Quoll", "Lion", "Tiger", "Bear", "Wolf", "Coyote", "Jackal", "Hyena", 
+  "Cheetah", "Jaguar", "Cougar", "Puma", "Lynx", "Bobcat", "Caracal", "Serval", 
+  "Zebra", "Horse", "Donkey", "Mule", "Camel", "Llama", "Alpaca", "Vicuna", 
+  "Guanaco", "Deer", "Elk", "Moose", "Caribou", "Reindeer", "Antelope", "Gazelle", 
+  "Impala", "Springbok", "Wildebeest", "Bison", "Buffalo", "Yak", "Zebu", "Banteng"
+];
+
+const generateRandomName = () => {
+  const plant = PLANT_LEXICON[Math.floor(Math.random() * PLANT_LEXICON.length)];
+  const animal = ANIMAL_LEXICON[Math.floor(Math.random() * ANIMAL_LEXICON.length)];
+  return `${plant} ${animal}`;
+};
 
 type SlotKey = keyof Outfit;
 
@@ -245,11 +260,15 @@ export default function App() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadDraft, setUploadDraft] = useState<{ id?: string; file?: File; preview: string; title: string; description: string; category: string } | null>(null);
   
+  // Closet Item Details State
+  const [selectedClosetItem, setSelectedClosetItem] = useState<Item | null>(null);
+  const [itemFitsPage, setItemFitsPage] = useState(0);
+  
   // Save Fit State
   const [isSavingFit, setIsSavingFit] = useState(false);
   const [fitName, setFitName] = useState('');
   const [fitStyleCategory, setFitStyleCategory] = useState('');
-  const [fitWeather, setFitWeather] = useState<'hot' | 'medium' | 'cold'>('medium');
+  const [fitWeather, setFitWeather] = useState<('hot' | 'medium' | 'cold')[]>(['medium']);
   const [fitRain, setFitRain] = useState(false);
   const [editingFitId, setEditingFitId] = useState<string | null>(null);
   
@@ -257,12 +276,13 @@ export default function App() {
   const [editingFitMetadata, setEditingFitMetadata] = useState<SavedFit | null>(null);
   const [editingFitName, setEditingFitName] = useState('');
   const [editingFitStyleCategory, setEditingFitStyleCategory] = useState('');
-  const [editingFitWeather, setEditingFitWeather] = useState<'hot' | 'medium' | 'cold'>('medium');
+  const [editingFitWeather, setEditingFitWeather] = useState<('hot' | 'medium' | 'cold')[]>(['medium']);
   const [editingFitRain, setEditingFitRain] = useState(false);
 
   const [draggedItem, setDraggedItem] = useState<Item | null>(null);
   const [draggedFitId, setDraggedFitId] = useState<string | null>(null);
   const [fitFilterItemId, setFitFilterItemId] = useState<string>('All');
+  const [isItemFilterOpen, setIsItemFilterOpen] = useState(false);
   const [fitFilterStyle, setFitFilterStyle] = useState<string>('All');
   const [fitSortWeather, setFitSortWeather] = useState<'all' | 'hot' | 'medium' | 'cold'>('all');
   const [fitSortRain, setFitSortRain] = useState<'all' | 'rain' | 'no-rain'>('all');
@@ -276,7 +296,7 @@ export default function App() {
 
   const displayedFits = savedFits
     .filter(fit => fitFilterItemId === 'All' || Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId)))
-    .filter(fit => fitSortWeather === 'all' || fit.weather === fitSortWeather)
+    .filter(fit => fitSortWeather === 'all' || (Array.isArray(fit.weather) ? fit.weather.includes(fitSortWeather) : fit.weather === fitSortWeather))
     .filter(fit => fitSortRain === 'all' || (fitSortRain === 'rain' ? fit.rain : !fit.rain))
     .filter(fit => fitFilterStyle === 'All' || fit.styleCategory === fitFilterStyle)
     .sort((a, b) => {
@@ -651,7 +671,7 @@ export default function App() {
     setOutfit(fit.outfit);
     setEditingFitId(fit.id);
     setFitName(fit.name === 'Untitled Fit' ? '' : fit.name);
-    setFitWeather(fit.weather || 'medium');
+    setFitWeather(Array.isArray(fit.weather) ? fit.weather : (fit.weather ? [fit.weather] : ['medium']));
     setFitRain(fit.rain || false);
     setCurrentView('builder');
   };
@@ -660,7 +680,7 @@ export default function App() {
     setEditingFitMetadata(fit);
     setEditingFitName(fit.name === 'Untitled Fit' ? '' : fit.name);
     setEditingFitStyleCategory(fit.styleCategory || '');
-    setEditingFitWeather(fit.weather || 'medium');
+    setEditingFitWeather(Array.isArray(fit.weather) ? fit.weather : (fit.weather ? [fit.weather] : ['medium']));
     setEditingFitRain(fit.rain || false);
   };
 
@@ -878,7 +898,13 @@ export default function App() {
                   key={item.id}
                   draggable={isDraggable}
                   onDragStart={() => isDraggable && handleDragStart(item)}
-                  className={`group relative aspect-[3/4] border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/30 hover:border-zinc-700 transition-colors ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                  onClick={() => {
+                    if (!isDraggable) {
+                      setSelectedClosetItem(item);
+                      setItemFitsPage(0);
+                    }
+                  }}
+                  className={`group relative aspect-[3/4] border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/30 hover:border-zinc-700 transition-colors ${isDraggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
                 >
                   <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                   
@@ -894,13 +920,19 @@ export default function App() {
 
                   <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all">
                     <button
-                      onClick={() => handleEditItem(item)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditItem(item);
+                      }}
                       className="p-2 bg-black/50 hover:bg-blue-500/80 rounded-full text-zinc-400 hover:text-white transition-all"
                     >
                       <Edit2 size={14} />
                     </button>
                     <button
-                      onClick={() => handleDeleteItem(item.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteItem(item.id);
+                      }}
                       className="p-2 bg-black/50 hover:bg-red-500/80 rounded-full text-zinc-400 hover:text-white transition-all"
                     >
                       <Trash2 size={14} />
@@ -1052,18 +1084,63 @@ export default function App() {
                 </div>
 
                 {itemsInFits.length > 0 && (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 relative">
                     <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Filter by Item:</span>
-                    <select 
-                      value={fitFilterItemId} 
-                      onChange={(e) => setFitFilterItemId(e.target.value)}
-                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 w-full truncate"
+                    <button
+                      onClick={() => setIsItemFilterOpen(!isItemFilterOpen)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 w-full flex justify-between items-center h-10"
                     >
-                      <option value="All">All Items</option>
-                      {itemsInFits.map(item => (
-                        <option key={item.id} value={item.id}>{item.title}</option>
-                      ))}
-                    </select>
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        {fitFilterItemId !== 'All' && itemsInFits.find(i => i.id === fitFilterItemId) && (
+                          <div className="w-6 h-6 rounded overflow-hidden shrink-0">
+                            <img src={itemsInFits.find(i => i.id === fitFilterItemId)?.image} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <span className="truncate">
+                          {fitFilterItemId === 'All' 
+                            ? 'All Items' 
+                            : itemsInFits.find(i => i.id === fitFilterItemId)?.title || 'Selected Item'}
+                        </span>
+                      </div>
+                      <span className="text-zinc-500 ml-2">▼</span>
+                    </button>
+                    
+                    {isItemFilterOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-950 border border-zinc-800 rounded-lg p-2 z-20 shadow-xl">
+                        <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                          <button
+                            onClick={() => {
+                              setFitFilterItemId('All');
+                              setIsItemFilterOpen(false);
+                            }}
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-mono transition-all ${
+                              fitFilterItemId === 'All' 
+                                ? 'bg-zinc-100 text-zinc-900 border-2 border-zinc-100' 
+                                : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:border-zinc-600'
+                            }`}
+                          >
+                            ALL
+                          </button>
+                          {itemsInFits.map(item => (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                setFitFilterItemId(item.id);
+                                setIsItemFilterOpen(false);
+                              }}
+                              className={`w-10 h-10 rounded-lg overflow-hidden transition-all relative ${
+                                fitFilterItemId === item.id 
+                                  ? 'border-2 border-zinc-100 ring-2 ring-zinc-100/20' 
+                                  : 'border border-zinc-800 hover:border-zinc-600 opacity-70 hover:opacity-100'
+                              }`}
+                              title={item.title}
+                            >
+                              <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1193,9 +1270,9 @@ export default function App() {
                             <h3 className="text-xl sm:text-3xl font-light tracking-widest uppercase">{fit.name}</h3>
                           </div>
                           <div className="flex items-center gap-2 text-zinc-500">
-                            {fit.weather === 'hot' && <ThermometerSun size={18} className="text-red-400/70" />}
-                            {fit.weather === 'medium' && <Thermometer size={18} className="text-zinc-400/70" />}
-                            {fit.weather === 'cold' && <ThermometerSnowflake size={18} className="text-blue-400/70" />}
+                            {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('hot') && <ThermometerSun size={18} className="text-red-400/70" />}
+                            {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('medium') && <Thermometer size={18} className="text-zinc-400/70" />}
+                            {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('cold') && <ThermometerSnowflake size={18} className="text-blue-400/70" />}
                             {fit.rain && <CloudRain size={18} className="text-blue-400/70" />}
                           </div>
                         </div>
@@ -1295,9 +1372,9 @@ export default function App() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-zinc-500">
-                      {fit.weather === 'hot' && <ThermometerSun size={14} className="text-red-400/70" />}
-                      {fit.weather === 'medium' && <Thermometer size={14} className="text-zinc-400/70" />}
-                      {fit.weather === 'cold' && <ThermometerSnowflake size={14} className="text-blue-400/70" />}
+                      {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('hot') && <ThermometerSun size={14} className="text-red-400/70" />}
+                      {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('medium') && <Thermometer size={14} className="text-zinc-400/70" />}
+                      {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('cold') && <ThermometerSnowflake size={14} className="text-blue-400/70" />}
                       {fit.rain && <CloudRain size={14} className="text-blue-400/70" />}
                     </div>
                   </div>
@@ -1368,9 +1445,9 @@ export default function App() {
                   <h3 className="text-2xl font-light tracking-widest uppercase">{previewFit.name}</h3>
                 </div>
                 <div className="flex items-center gap-2 text-zinc-500">
-                  {previewFit.weather === 'hot' && <ThermometerSun size={16} className="text-red-400/70" />}
-                  {previewFit.weather === 'medium' && <Thermometer size={16} className="text-zinc-400/70" />}
-                  {previewFit.weather === 'cold' && <ThermometerSnowflake size={16} className="text-blue-400/70" />}
+                  {(Array.isArray(previewFit.weather) ? previewFit.weather : [previewFit.weather]).includes('hot') && <ThermometerSun size={16} className="text-red-400/70" />}
+                  {(Array.isArray(previewFit.weather) ? previewFit.weather : [previewFit.weather]).includes('medium') && <Thermometer size={16} className="text-zinc-400/70" />}
+                  {(Array.isArray(previewFit.weather) ? previewFit.weather : [previewFit.weather]).includes('cold') && <ThermometerSnowflake size={16} className="text-blue-400/70" />}
                   {previewFit.rain && <CloudRain size={16} className="text-blue-400/70" />}
                 </div>
               </div>
@@ -1386,6 +1463,149 @@ export default function App() {
             </div>
             
             <FitLayoutPreview outfit={previewFit.outfit} size="md" />
+          </div>
+        </div>
+      )}
+
+      {/* Closet Item Details Modal */}
+      {selectedClosetItem && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl p-6 w-full max-w-4xl relative shadow-2xl flex flex-col md:flex-row gap-8 max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <button
+              onClick={() => setSelectedClosetItem(null)}
+              className="absolute top-4 right-4 text-zinc-500 hover:text-zinc-100 transition-colors z-10"
+            >
+              <X size={20} />
+            </button>
+            
+            {/* Left side: Item Details */}
+            <div className="flex flex-col gap-4 w-full md:w-1/3 shrink-0 min-w-0">
+              <div className="aspect-[3/4] rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900/50 shrink-0">
+                <img src={selectedClosetItem.image} alt={selectedClosetItem.title} className="w-full h-full object-cover" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-1 truncate">{selectedClosetItem.category}</p>
+                <h3 className="text-xl font-light tracking-widest uppercase mb-2 break-words">{selectedClosetItem.title}</h3>
+                {selectedClosetItem.description && (
+                  <p className="text-sm text-zinc-400 leading-relaxed break-words">{selectedClosetItem.description}</p>
+                )}
+              </div>
+              <div className="flex gap-2 mt-auto pt-4 shrink-0">
+                <button
+                  onClick={() => {
+                    handleEditItem(selectedClosetItem);
+                    setSelectedClosetItem(null);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-lg text-zinc-300 transition-colors text-xs uppercase tracking-widest"
+                >
+                  <Edit2 size={14} /> Edit
+                </button>
+                <button
+                  onClick={() => {
+                    handleDeleteItem(selectedClosetItem.id);
+                    setSelectedClosetItem(null);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 bg-red-950/30 hover:bg-red-900/50 border border-red-900/50 rounded-lg text-red-400 transition-colors text-xs uppercase tracking-widest"
+                >
+                  <Trash2 size={14} /> Delete
+                </button>
+              </div>
+            </div>
+
+            {/* Right side: Fits containing this item */}
+            <div className="flex flex-col w-full min-w-0">
+              <h4 className="text-sm font-mono text-zinc-500 uppercase tracking-widest mb-6 pb-4 border-b border-zinc-800">
+                Featured in Outfits
+              </h4>
+              
+              {(() => {
+                const itemFits = savedFits.filter(fit => 
+                  Object.values(fit.outfit).flat().some((i: any) => i.id === selectedClosetItem.id)
+                );
+                
+                if (itemFits.length === 0) {
+                  return (
+                    <div className="flex-1 flex flex-col items-center justify-center text-zinc-600 min-h-[200px]">
+                      <p className="font-mono text-xs uppercase tracking-widest">Not used in any fits yet</p>
+                    </div>
+                  );
+                }
+
+                const fitsPerPage = 2;
+                const totalPages = Math.ceil(itemFits.length / fitsPerPage);
+                const paginatedFits = itemFits.slice(itemFitsPage * fitsPerPage, (itemFitsPage + 1) * fitsPerPage);
+
+                return (
+                  <div className="flex flex-col h-full relative">
+                    <div className="flex-1 overflow-hidden relative min-h-[400px]">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={itemFitsPage}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          transition={{ duration: 0.2 }}
+                          className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                        >
+                          {paginatedFits.map(fit => (
+                            <div 
+                              key={fit.id} 
+                              className="border border-zinc-800 rounded-xl p-4 bg-zinc-900/20 hover:bg-zinc-900/40 transition-colors cursor-pointer flex flex-col h-full"
+                              onClick={() => {
+                                setPreviewFit(fit);
+                                setSelectedClosetItem(null);
+                              }}
+                            >
+                              <div className="flex justify-between items-start mb-4 shrink-0">
+                                <div className="overflow-hidden pr-2">
+                                  <h5 className="text-sm font-medium text-zinc-200 uppercase tracking-widest truncate">{fit.name}</h5>
+                                  {fit.styleCategory && (
+                                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-1 truncate">{fit.styleCategory}</p>
+                                  )}
+                                </div>
+                                <div className="flex gap-1 text-zinc-500 shrink-0">
+                                  {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('hot') && <ThermometerSun size={14} />}
+                                  {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('medium') && <Thermometer size={14} />}
+                                  {(Array.isArray(fit.weather) ? fit.weather : [fit.weather]).includes('cold') && <ThermometerSnowflake size={14} />}
+                                  {fit.rain && <CloudRain size={14} />}
+                                </div>
+                              </div>
+                              <div className="flex-1 overflow-hidden">
+                                <div className="scale-75 origin-top-left w-[133%]">
+                                  <FitLayoutPreview outfit={fit.outfit} size="sm" />
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+                    
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-800/50 shrink-0">
+                        <button
+                          onClick={() => setItemFitsPage(Math.max(0, itemFitsPage - 1))}
+                          disabled={itemFitsPage === 0}
+                          className="p-2 rounded-full border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <ArrowLeft size={16} />
+                        </button>
+                        <span className="text-xs font-mono text-zinc-500">
+                          PAGE {itemFitsPage + 1} OF {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setItemFitsPage(Math.min(totalPages - 1, itemFitsPage + 1))}
+                          disabled={itemFitsPage === totalPages - 1}
+                          className="p-2 rounded-full border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       )}
@@ -1527,28 +1747,32 @@ export default function App() {
               <div className="flex flex-col gap-3">
                 <div className="flex justify-between items-center">
                   <label className="text-xs text-zinc-500 uppercase tracking-widest font-mono">Weather</label>
-                  <span className="text-xs font-medium text-zinc-300 uppercase tracking-widest">{fitWeather}</span>
+                  <span className="text-xs font-medium text-zinc-300 uppercase tracking-widest">{fitWeather.join(', ')}</span>
                 </div>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="2" 
-                  step="1"
-                  value={fitWeather === 'cold' ? 0 : fitWeather === 'medium' ? 1 : 2}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    setFitWeather(val === 0 ? 'cold' : val === 1 ? 'medium' : 'hot');
-                  }}
-                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-400"
-                />
-                <div className="flex justify-between text-[10px] text-zinc-600 uppercase tracking-widest font-mono">
-                  <span>Cold</span>
-                  <span>Medium</span>
-                  <span>Hot</span>
+                <div className="flex gap-2">
+                  {(['cold', 'medium', 'hot'] as const).map((w) => (
+                    <button
+                      key={w}
+                      onClick={() => {
+                        setFitWeather(prev => 
+                          prev.includes(w) 
+                            ? prev.filter(x => x !== w) 
+                            : [...prev, w]
+                        );
+                      }}
+                      className={`flex-1 py-2 rounded-lg border text-xs uppercase tracking-widest transition-colors ${
+                        fitWeather.includes(w)
+                          ? 'bg-zinc-100 text-zinc-900 border-zinc-100'
+                          : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-600'
+                      }`}
+                    >
+                      {w}
+                    </button>
+                  ))}
                 </div>
               </div>
               
-              <label className="flex items-center gap-3 cursor-pointer group">
+              <label className="flex items-center gap-3 cursor-pointer group" onClick={(e) => { e.preventDefault(); setFitRain(!fitRain); }}>
                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${fitRain ? 'bg-blue-500 border-blue-500' : 'bg-zinc-900 border-zinc-700 group-hover:border-zinc-500'}`}>
                   {fitRain && <CheckCircle2 size={14} className="text-white" />}
                 </div>
@@ -1629,36 +1853,37 @@ export default function App() {
               </div>
               
               <div className="flex flex-col gap-2">
-                <label className="text-xs uppercase tracking-widest text-zinc-500">Weather</label>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="2" 
-                  step="1"
-                  value={editingFitWeather === 'cold' ? 0 : editingFitWeather === 'medium' ? 1 : 2}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    setEditingFitWeather(val === 0 ? 'cold' : val === 1 ? 'medium' : 'hot');
-                  }}
-                  className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-zinc-400"
-                />
-                <div className="flex justify-between text-[10px] text-zinc-600 uppercase tracking-widest font-mono">
-                  <span>Cold</span>
-                  <span>Medium</span>
-                  <span>Hot</span>
+                <div className="flex justify-between items-center">
+                  <label className="text-xs uppercase tracking-widest text-zinc-500">Weather</label>
+                  <span className="text-xs font-medium text-zinc-300 uppercase tracking-widest">{editingFitWeather.join(', ')}</span>
+                </div>
+                <div className="flex gap-2">
+                  {(['cold', 'medium', 'hot'] as const).map((w) => (
+                    <button
+                      key={w}
+                      onClick={() => {
+                        setEditingFitWeather(prev => 
+                          prev.includes(w) 
+                            ? prev.filter(x => x !== w) 
+                            : [...prev, w]
+                        );
+                      }}
+                      className={`flex-1 py-2 rounded-lg border text-xs uppercase tracking-widest transition-colors ${
+                        editingFitWeather.includes(w)
+                          ? 'bg-zinc-100 text-zinc-900 border-zinc-100'
+                          : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-600'
+                      }`}
+                    >
+                      {w}
+                    </button>
+                  ))}
                 </div>
               </div>
               
-              <label className="flex items-center gap-3 cursor-pointer group">
+              <label className="flex items-center gap-3 cursor-pointer group" onClick={(e) => { e.preventDefault(); setEditingFitRain(!editingFitRain); }}>
                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${editingFitRain ? 'bg-blue-500 border-blue-500' : 'bg-zinc-900 border-zinc-700 group-hover:border-zinc-500'}`}>
                   {editingFitRain && <CheckCircle2 size={14} className="text-white" />}
                 </div>
-                <input 
-                  type="checkbox" 
-                  className="hidden" 
-                  checked={editingFitRain} 
-                  onChange={(e) => setEditingFitRain(e.target.checked)} 
-                />
                 <span className="text-sm text-zinc-300 group-hover:text-white transition-colors">Suitable for Rain</span>
               </label>
 

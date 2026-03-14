@@ -26,7 +26,7 @@ export type DBSavedFit = {
   styleCategory?: string;
   outfit: DBOutfit;
   order?: number;
-  weather?: 'hot' | 'medium' | 'cold';
+  weather?: ('hot' | 'medium' | 'cold')[] | 'hot' | 'medium' | 'cold';
   rain?: boolean;
 };
 
