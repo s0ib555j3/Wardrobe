@@ -271,6 +271,8 @@ export default function App() {
   const [lookbookIndex, setLookbookIndex] = useState(0);
   const [lookbookDirection, setLookbookDirection] = useState(0);
   const [previewFit, setPreviewFit] = useState<SavedFit | null>(null);
+  const [builderPage, setBuilderPage] = useState(0);
+  const [closetPage, setClosetPage] = useState(0);
 
   const displayedFits = savedFits
     .filter(fit => fitFilterItemId === 'All' || Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId)))
@@ -794,12 +796,23 @@ export default function App() {
     </div>
   );
 
+  const handleCategoryFilterChange = (category: string) => {
+    setCategoryFilter(category);
+    setBuilderPage(0);
+    setClosetPage(0);
+  };
+
   const renderClosetGrid = (isDraggable = false) => {
     const filteredCloset = categoryFilter === 'All' 
       ? closet 
       : categoryFilter === 'All Accessories'
         ? closet.filter(i => ACCESSORY_CATEGORIES.includes(i.category))
         : closet.filter(i => i.category === categoryFilter);
+
+    const itemsPerPage = isDraggable ? 16 : 20;
+    const currentPage = isDraggable ? builderPage : closetPage;
+    const totalPages = Math.ceil(filteredCloset.length / itemsPerPage);
+    const paginatedCloset = filteredCloset.slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage);
 
     return (
       <section className="flex flex-col gap-6 w-full">
@@ -811,7 +824,7 @@ export default function App() {
         {/* Category Filter Tabs */}
         <div className="flex flex-wrap gap-2 mb-2 items-center">
           <button 
-            onClick={() => setCategoryFilter('All')}
+            onClick={() => handleCategoryFilterChange('All')}
             className={`px-3 py-1.5 text-[10px] uppercase tracking-widest rounded-full border transition-colors ${categoryFilter === 'All' ? 'border-zinc-500 bg-zinc-800 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
           >
             All
@@ -819,7 +832,7 @@ export default function App() {
           {MAIN_CATEGORIES.map(cat => (
             <button 
               key={cat}
-              onClick={() => setCategoryFilter(cat)}
+              onClick={() => handleCategoryFilterChange(cat)}
               className={`px-3 py-1.5 text-[10px] uppercase tracking-widest rounded-full border transition-colors ${categoryFilter === cat ? 'border-zinc-500 bg-zinc-800 text-white' : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'}`}
             >
               {cat}
@@ -828,7 +841,7 @@ export default function App() {
           <div className="relative">
             <select
               value={ACCESSORY_CATEGORIES.includes(categoryFilter) || categoryFilter === 'All Accessories' ? categoryFilter : 'default'}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) => handleCategoryFilterChange(e.target.value)}
               className={`appearance-none pl-3 pr-6 py-1.5 text-[10px] uppercase tracking-widest rounded-full border transition-colors cursor-pointer outline-none ${
                 ACCESSORY_CATEGORIES.includes(categoryFilter) || categoryFilter === 'All Accessories' 
                   ? 'border-zinc-500 bg-zinc-800 text-white' 
@@ -858,43 +871,67 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <div className={`grid gap-4 ${isDraggable ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'}`}>
-            {filteredCloset.map((item) => (
-              <div
-                key={item.id}
-                draggable={isDraggable}
-                onDragStart={() => isDraggable && handleDragStart(item)}
-                className={`group relative aspect-[3/4] border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/30 hover:border-zinc-700 transition-colors ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-              >
-                <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
-                  <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest mb-1">{item.category}</p>
-                  <p className="text-xs font-medium truncate text-white">{item.title}</p>
-                  {item.description && (
-                    <p className="text-[10px] text-zinc-400 line-clamp-2 mt-1 leading-relaxed">
-                      {item.description}
-                    </p>
-                  )}
-                </div>
+          <>
+            <div className={`grid gap-4 ${isDraggable ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'}`}>
+              {paginatedCloset.map((item) => (
+                <div
+                  key={item.id}
+                  draggable={isDraggable}
+                  onDragStart={() => isDraggable && handleDragStart(item)}
+                  className={`group relative aspect-[3/4] border border-zinc-900 rounded-xl overflow-hidden bg-zinc-900/30 hover:border-zinc-700 transition-colors ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                >
+                  <img src={item.image} alt={item.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4">
+                    <p className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest mb-1">{item.category}</p>
+                    <p className="text-xs font-medium truncate text-white">{item.title}</p>
+                    {item.description && (
+                      <p className="text-[10px] text-zinc-400 line-clamp-2 mt-1 leading-relaxed">
+                        {item.description}
+                      </p>
+                    )}
+                  </div>
 
-                <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                  <button
-                    onClick={() => handleEditItem(item)}
-                    className="p-2 bg-black/50 hover:bg-blue-500/80 rounded-full text-zinc-400 hover:text-white transition-all"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteItem(item.id)}
-                    className="p-2 bg-black/50 hover:bg-red-500/80 rounded-full text-zinc-400 hover:text-white transition-all"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <button
+                      onClick={() => handleEditItem(item)}
+                      className="p-2 bg-black/50 hover:bg-blue-500/80 rounded-full text-zinc-400 hover:text-white transition-all"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteItem(item.id)}
+                      className="p-2 bg-black/50 hover:bg-red-500/80 rounded-full text-zinc-400 hover:text-white transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
+              ))}
+            </div>
+            
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-4 mt-4">
+                <button
+                  onClick={() => isDraggable ? setBuilderPage(Math.max(0, builderPage - 1)) : setClosetPage(Math.max(0, closetPage - 1))}
+                  disabled={currentPage === 0}
+                  className="p-2 rounded-full border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <span className="text-xs font-mono text-zinc-500">
+                  PAGE {currentPage + 1} OF {totalPages}
+                </span>
+                <button
+                  onClick={() => isDraggable ? setBuilderPage(Math.min(totalPages - 1, builderPage + 1)) : setClosetPage(Math.min(totalPages - 1, closetPage + 1))}
+                  disabled={currentPage === totalPages - 1}
+                  className="p-2 rounded-full border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ArrowRight size={16} />
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </section>
     );
@@ -958,8 +995,14 @@ export default function App() {
       Object.values(fit.outfit).flatMap(slot => (slot as Item[]).map(item => item.id))
     ))).map(id => closet.find(i => i.id === id)).filter(Boolean) as Item[];
 
-    const LOOKBOOK_COLORS = ['bg-blue-500/20', 'bg-purple-500/20', 'bg-emerald-500/20', 'bg-rose-500/20', 'bg-amber-500/20'];
-    const currentColor = LOOKBOOK_COLORS[lookbookIndex % LOOKBOOK_COLORS.length] || 'bg-zinc-800/20';
+    const LOOKBOOK_PALETTES = [
+      ['bg-blue-500/30', 'bg-purple-500/30', 'bg-indigo-500/30'],
+      ['bg-emerald-500/30', 'bg-teal-500/30', 'bg-cyan-500/30'],
+      ['bg-rose-500/30', 'bg-orange-500/30', 'bg-amber-500/30'],
+      ['bg-fuchsia-500/30', 'bg-pink-500/30', 'bg-rose-500/30'],
+      ['bg-amber-500/30', 'bg-yellow-500/30', 'bg-orange-500/30'],
+    ];
+    const currentPalette = LOOKBOOK_PALETTES[lookbookIndex % LOOKBOOK_PALETTES.length] || LOOKBOOK_PALETTES[0];
 
     return (
       <section className="flex flex-col md:flex-row gap-8">
@@ -1073,32 +1116,73 @@ export default function App() {
             </div>
           ) : lookbookMode ? (
             <div className="flex flex-col items-center justify-center py-4 sm:py-8 relative overflow-hidden min-h-[750px] sm:min-h-[850px] md:min-h-[900px] w-full rounded-3xl border border-zinc-800/50 bg-zinc-950/30">
-              <div className={`absolute inset-0 transition-colors duration-1000 blur-[120px] opacity-30 ${currentColor}`} />
-              <div className="relative w-full max-w-7xl h-[650px] sm:h-[750px] md:h-[800px] flex items-center justify-center z-10">
+              <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
+                <motion.div
+                  className={`absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full blur-[100px] transition-colors duration-1000 ${currentPalette[0]}`}
+                  animate={{
+                    x: ['0%', '15%', '0%', '-15%', '0%'],
+                    y: ['0%', '10%', '-10%', '0%', '0%'],
+                    scale: [1, 1.15, 1, 0.85, 1],
+                  }}
+                  transition={{
+                    duration: 12,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                />
+                <motion.div
+                  className={`absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full blur-[100px] transition-colors duration-1000 ${currentPalette[1]}`}
+                  animate={{
+                    x: ['0%', '-15%', '0%', '15%', '0%'],
+                    y: ['0%', '-10%', '10%', '0%', '0%'],
+                    scale: [1, 0.85, 1, 1.15, 1],
+                  }}
+                  transition={{
+                    duration: 15,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                />
+                <motion.div
+                  className={`absolute top-[20%] right-[20%] w-[40%] h-[40%] rounded-full blur-[80px] transition-colors duration-1000 ${currentPalette[2]}`}
+                  animate={{
+                    x: ['0%', '20%', '-10%', '10%', '0%'],
+                    y: ['0%', '-20%', '10%', '-10%', '0%'],
+                    scale: [1, 1.2, 1, 0.8, 1],
+                  }}
+                  transition={{
+                    duration: 10,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                />
+              </div>
+              <div className="relative w-full max-w-7xl h-[650px] sm:h-[750px] md:h-[800px] flex items-center justify-center z-10" style={{ perspective: '1200px' }}>
                 {displayedFits.map((fit, index) => {
                   const offset = getCarouselOffset(index, lookbookIndex, displayedFits.length);
                   const isCurrent = offset === 0;
-                  const isVisible = Math.abs(offset) <= 1 || displayedFits.length <= 3;
                   
                   return (
                     <motion.div
                       key={fit.id}
                       initial={false}
                       animate={{
-                        x: `${offset * 85}%`,
-                        scale: isCurrent ? 1 : 0.7,
-                        opacity: isCurrent ? 1 : Math.abs(offset) === 1 ? 0.3 : 0,
-                        zIndex: isCurrent ? 20 : 10,
+                        x: `${offset * 65}%`,
+                        z: -Math.abs(offset) * 150,
+                        scale: isCurrent ? 1 : 1 - Math.abs(offset) * 0.15,
+                        opacity: isCurrent ? 1 : Math.abs(offset) === 1 ? 0.5 : Math.abs(offset) === 2 ? 0.15 : 0,
+                        zIndex: 20 - Math.abs(offset),
+                        rotateY: offset * -25,
                       }}
-                      transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                      transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
                       onClick={() => {
-                        if (!isCurrent && Math.abs(offset) === 1) {
+                        if (!isCurrent && Math.abs(offset) <= 2) {
                           setLookbookDirection(offset > 0 ? 1 : -1);
                           setLookbookIndex(index);
                         }
                       }}
                       className={`absolute w-full max-w-4xl flex flex-col gap-4 sm:gap-8 items-center ${isCurrent ? 'pointer-events-auto' : 'pointer-events-auto cursor-pointer'}`}
-                      style={{ pointerEvents: Math.abs(offset) > 1 ? 'none' : 'auto' }}
+                      style={{ pointerEvents: Math.abs(offset) > 2 ? 'none' : 'auto', transformStyle: 'preserve-3d' }}
                     >
                       <div className="flex items-center justify-between w-full max-w-4xl px-4 sm:px-8">
                         <div className="flex flex-col gap-1 sm:gap-2">
