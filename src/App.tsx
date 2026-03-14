@@ -362,8 +362,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [previewFit]);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement> | File) => {
+    const file = 'target' in e ? e.target.files?.[0] : e;
     if (file) {
       const preview = URL.createObjectURL(file);
       setUploadDraft(prev => prev ? {
@@ -377,6 +379,25 @@ export default function App() {
         description: '',
         category: 'Top', // Default category
       });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      handleFileSelect(file);
     }
   };
 
@@ -937,266 +958,270 @@ export default function App() {
       Object.values(fit.outfit).flatMap(slot => (slot as Item[]).map(item => item.id))
     ))).map(id => closet.find(i => i.id === id)).filter(Boolean) as Item[];
 
+    const LOOKBOOK_COLORS = ['bg-blue-500/20', 'bg-purple-500/20', 'bg-emerald-500/20', 'bg-rose-500/20', 'bg-amber-500/20'];
+    const currentColor = LOOKBOOK_COLORS[lookbookIndex % LOOKBOOK_COLORS.length] || 'bg-zinc-800/20';
+
     return (
-      <section className="flex flex-col gap-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <section className="flex flex-col md:flex-row gap-8">
+        {/* Left Sidebar */}
+        <div className="w-full md:w-64 flex-shrink-0 flex flex-col gap-6">
           <div className="flex items-center gap-4">
             <h2 className="text-sm uppercase tracking-widest text-zinc-500 font-mono">Saved Fits</h2>
             <span className="text-xs text-zinc-600 font-mono">{savedFits.length} SAVED</span>
           </div>
           
-          <div className="flex flex-wrap items-center gap-4">
-            {savedFits.length > 0 && itemsInFits.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Filter by Item:</span>
-                <select 
-                  value={fitFilterItemId} 
-                  onChange={(e) => setFitFilterItemId(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 max-w-[200px] truncate"
-                >
-                  <option value="All">All Items</option>
-                  {itemsInFits.map(item => (
-                    <option key={item.id} value={item.id}>{item.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            
-            {savedFits.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Style:</span>
-                <select 
-                  value={fitFilterStyle} 
-                  onChange={(e) => setFitFilterStyle(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100"
-                >
-                  <option value="All">All Styles</option>
-                  {Array.from(new Set(savedFits.map(f => f.styleCategory).filter(Boolean))).map(style => (
-                    <option key={style} value={style}>{style}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            
-            {savedFits.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Weather:</span>
-                <select 
-                  value={fitSortWeather} 
-                  onChange={(e) => setFitSortWeather(e.target.value as any)}
-                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100"
-                >
-                  <option value="all">All</option>
-                  <option value="hot">Hot</option>
-                  <option value="medium">Medium</option>
-                  <option value="cold">Cold</option>
-                </select>
-              </div>
-            )}
-            
-            {savedFits.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Rain:</span>
-                <select 
-                  value={fitSortRain} 
-                  onChange={(e) => setFitSortRain(e.target.value as any)}
-                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100"
-                >
-                  <option value="all">All</option>
-                  <option value="rain">Rain</option>
-                  <option value="no-rain">No Rain</option>
-                </select>
-              </div>
-            )}
-            
-            {savedFits.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Sort:</span>
-                <select 
-                  value={fitSortOrder} 
-                  onChange={(e) => setFitSortOrder(e.target.value as any)}
-                  className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100"
-                >
-                  <option value="custom">Custom Order</option>
-                  <option value="name-asc">Name (A-Z)</option>
-                  <option value="name-desc">Name (Z-A)</option>
-                </select>
-              </div>
-            )}
-            
+          <div className="flex flex-col gap-4">
             <button 
               onClick={() => setLookbookMode(!lookbookMode)}
-              className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-lg hover:bg-zinc-800"
+              className="flex items-center justify-center gap-2 text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-4 py-3 border border-zinc-800 rounded-lg hover:bg-zinc-800 w-full"
             >
               {lookbookMode ? <LayoutGrid size={14} /> : <BookOpen size={14} />}
               {lookbookMode ? 'Grid View' : 'Lookbook'}
             </button>
+
+            {savedFits.length > 0 && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Sort Order:</span>
+                  <select 
+                    value={fitSortOrder} 
+                    onChange={(e) => setFitSortOrder(e.target.value as any)}
+                    className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 w-full"
+                  >
+                    <option value="custom">Custom Order</option>
+                    <option value="name-asc">Name (A-Z)</option>
+                    <option value="name-desc">Name (Z-A)</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Filter by Style:</span>
+                  <select 
+                    value={fitFilterStyle} 
+                    onChange={(e) => setFitFilterStyle(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 w-full"
+                  >
+                    <option value="All">All Styles</option>
+                    {Array.from(new Set(savedFits.map(f => f.styleCategory).filter(Boolean))).map(style => (
+                      <option key={style} value={style}>{style}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {itemsInFits.length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Filter by Item:</span>
+                    <select 
+                      value={fitFilterItemId} 
+                      onChange={(e) => setFitFilterItemId(e.target.value)}
+                      className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 w-full truncate"
+                    >
+                      <option value="All">All Items</option>
+                      {itemsInFits.map(item => (
+                        <option key={item.id} value={item.id}>{item.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Weather:</span>
+                  <select 
+                    value={fitSortWeather} 
+                    onChange={(e) => setFitSortWeather(e.target.value as any)}
+                    className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 w-full"
+                  >
+                    <option value="all">All</option>
+                    <option value="hot">Hot</option>
+                    <option value="medium">Medium</option>
+                    <option value="cold">Cold</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono">Rain:</span>
+                  <select 
+                    value={fitSortRain} 
+                    onChange={(e) => setFitSortRain(e.target.value as any)}
+                    className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-zinc-600 text-zinc-100 w-full"
+                  >
+                    <option value="all">All</option>
+                    <option value="rain">Rain</option>
+                    <option value="no-rain">No Rain</option>
+                  </select>
+                </div>
+              </>
+            )}
           </div>
         </div>
-        
-        {savedFits.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-zinc-800 rounded-2xl text-zinc-600">
-            <p className="font-mono text-sm uppercase tracking-widest mb-4">No saved fits yet</p>
-            <button
-              onClick={() => setCurrentView('builder')}
-              className="text-xs uppercase tracking-widest text-zinc-400 hover:text-zinc-100 transition-colors underline underline-offset-4"
-            >
-              Create your first fit
-            </button>
-          </div>
-        ) : displayedFits.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 border border-dashed border-zinc-800 rounded-2xl text-zinc-600">
-            <p className="font-mono text-sm uppercase tracking-widest">No fits found with this item</p>
-          </div>
-        ) : lookbookMode ? (
-          <div className="flex flex-col items-center justify-center py-4 sm:py-8 relative overflow-hidden min-h-[650px] sm:min-h-[750px] md:min-h-[800px] w-full">
-            <div className="relative w-full max-w-6xl h-[550px] sm:h-[650px] md:h-[700px] flex items-center justify-center">
-              {displayedFits.map((fit, index) => {
-                const offset = getCarouselOffset(index, lookbookIndex, displayedFits.length);
-                const isCurrent = offset === 0;
-                const isVisible = Math.abs(offset) <= 1 || displayedFits.length <= 3;
-                
-                return (
-                  <motion.div
-                    key={fit.id}
-                    initial={false}
-                    animate={{
-                      x: `${offset * 85}%`,
-                      scale: isCurrent ? 1 : 0.7,
-                      opacity: isCurrent ? 1 : Math.abs(offset) === 1 ? 0.3 : 0,
-                      zIndex: isCurrent ? 20 : 10,
-                    }}
-                    transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-                    onClick={() => {
-                      if (!isCurrent && Math.abs(offset) === 1) {
-                        setLookbookDirection(offset > 0 ? 1 : -1);
-                        setLookbookIndex(index);
-                      }
-                    }}
-                    className={`absolute w-full max-w-3xl flex flex-col gap-4 sm:gap-8 items-center ${isCurrent ? 'pointer-events-auto' : 'pointer-events-auto cursor-pointer'}`}
-                    style={{ pointerEvents: Math.abs(offset) > 1 ? 'none' : 'auto' }}
-                  >
-                    <div className="flex items-center justify-between w-full max-w-3xl px-4 sm:px-8">
-                      <div className="flex flex-col gap-1 sm:gap-2">
-                        <div className="flex flex-col">
-                          {fit.styleCategory && (
-                            <span className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">{fit.styleCategory}</span>
-                          )}
-                          <h3 className="text-xl sm:text-2xl font-light tracking-widest uppercase">{fit.name}</h3>
+
+        {/* Main Content */}
+        <div className="flex-1">
+          {savedFits.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 border border-dashed border-zinc-800 rounded-2xl text-zinc-600">
+              <p className="font-mono text-sm uppercase tracking-widest mb-4">No saved fits yet</p>
+              <button
+                onClick={() => setCurrentView('builder')}
+                className="text-xs uppercase tracking-widest text-zinc-400 hover:text-zinc-100 transition-colors underline underline-offset-4"
+              >
+                Create your first fit
+              </button>
+            </div>
+          ) : displayedFits.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 border border-dashed border-zinc-800 rounded-2xl text-zinc-600">
+              <p className="font-mono text-sm uppercase tracking-widest">No fits found with this item</p>
+            </div>
+          ) : lookbookMode ? (
+            <div className="flex flex-col items-center justify-center py-4 sm:py-8 relative overflow-hidden min-h-[750px] sm:min-h-[850px] md:min-h-[900px] w-full rounded-3xl border border-zinc-800/50 bg-zinc-950/30">
+              <div className={`absolute inset-0 transition-colors duration-1000 blur-[120px] opacity-30 ${currentColor}`} />
+              <div className="relative w-full max-w-7xl h-[650px] sm:h-[750px] md:h-[800px] flex items-center justify-center z-10">
+                {displayedFits.map((fit, index) => {
+                  const offset = getCarouselOffset(index, lookbookIndex, displayedFits.length);
+                  const isCurrent = offset === 0;
+                  const isVisible = Math.abs(offset) <= 1 || displayedFits.length <= 3;
+                  
+                  return (
+                    <motion.div
+                      key={fit.id}
+                      initial={false}
+                      animate={{
+                        x: `${offset * 85}%`,
+                        scale: isCurrent ? 1 : 0.7,
+                        opacity: isCurrent ? 1 : Math.abs(offset) === 1 ? 0.3 : 0,
+                        zIndex: isCurrent ? 20 : 10,
+                      }}
+                      transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+                      onClick={() => {
+                        if (!isCurrent && Math.abs(offset) === 1) {
+                          setLookbookDirection(offset > 0 ? 1 : -1);
+                          setLookbookIndex(index);
+                        }
+                      }}
+                      className={`absolute w-full max-w-4xl flex flex-col gap-4 sm:gap-8 items-center ${isCurrent ? 'pointer-events-auto' : 'pointer-events-auto cursor-pointer'}`}
+                      style={{ pointerEvents: Math.abs(offset) > 1 ? 'none' : 'auto' }}
+                    >
+                      <div className="flex items-center justify-between w-full max-w-4xl px-4 sm:px-8">
+                        <div className="flex flex-col gap-1 sm:gap-2">
+                          <div className="flex flex-col">
+                            {fit.styleCategory && (
+                              <span className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest mb-1">{fit.styleCategory}</span>
+                            )}
+                            <h3 className="text-xl sm:text-3xl font-light tracking-widest uppercase">{fit.name}</h3>
+                          </div>
+                          <div className="flex items-center gap-2 text-zinc-500">
+                            {fit.weather === 'hot' && <ThermometerSun size={18} className="text-red-400/70" />}
+                            {fit.weather === 'medium' && <Thermometer size={18} className="text-zinc-400/70" />}
+                            {fit.weather === 'cold' && <ThermometerSnowflake size={18} className="text-blue-400/70" />}
+                            {fit.rain && <CloudRain size={18} className="text-blue-400/70" />}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-zinc-500">
-                          {fit.weather === 'hot' && <ThermometerSun size={16} className="text-red-400/70" />}
-                          {fit.weather === 'medium' && <Thermometer size={16} className="text-zinc-400/70" />}
-                          {fit.weather === 'cold' && <ThermometerSnowflake size={16} className="text-blue-400/70" />}
-                          {fit.rain && <CloudRain size={16} className="text-blue-400/70" />}
+                        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                          <span className="text-[10px] sm:text-xs text-zinc-500 font-mono">
+                            {index + 1} / {displayedFits.length}
+                          </span>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLoadFit(fit);
+                            }} 
+                            className="text-[10px] sm:text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 sm:px-4 py-1.5 sm:py-2 border border-zinc-800 rounded-full hover:bg-zinc-800"
+                            tabIndex={isCurrent ? 0 : -1}
+                          >
+                            Load
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-                        <span className="text-[10px] sm:text-xs text-zinc-500 font-mono">
-                          {index + 1} / {displayedFits.length}
-                        </span>
+                      <div className={`w-full ${isCurrent ? '' : 'pointer-events-none'}`}>
+                        <FitLayoutPreview outfit={fit.outfit} size="md" />
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+              
+              {/* Navigation Buttons */}
+              {displayedFits.length > 1 && (
+                <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-between px-0 sm:px-4 pointer-events-none z-30">
+                  <button 
+                    onClick={() => {
+                      setLookbookDirection(-1);
+                      setLookbookIndex(prev => (prev - 1 + displayedFits.length) % displayedFits.length);
+                    }}
+                    className="pointer-events-auto p-4 rounded-full bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors backdrop-blur-md border border-zinc-800"
+                  >
+                    <ArrowLeft size={24} />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setLookbookDirection(1);
+                      setLookbookIndex(prev => (prev + 1) % displayedFits.length);
+                    }}
+                    className="pointer-events-auto p-4 rounded-full bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors backdrop-blur-md border border-zinc-800"
+                  >
+                    <ArrowRight size={24} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {displayedFits.map(fit => (
+                <motion.div 
+                  layout
+                  key={fit.id} 
+                  draggable={fitFilterItemId === 'All'}
+                  onDragStart={() => fitFilterItemId === 'All' && handleFitDragStart(fit.id)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (fitFilterItemId === 'All') handleFitDragOver(fit.id);
+                  }}
+                  onDragEnd={handleFitDragEnd}
+                  className={`flex flex-col gap-4 p-4 border border-zinc-900 rounded-2xl bg-zinc-950/50 hover:border-zinc-700 transition-colors group ${fitFilterItemId === 'All' ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedFitId === fit.id ? 'opacity-50 border-zinc-500' : ''}`}
+                >
+                  <FitCollage outfit={fit.outfit} onClick={() => setPreviewFit(fit)} />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex flex-col overflow-hidden pr-2">
+                        {fit.styleCategory && (
+                          <span className="text-[10px] text-zinc-500 uppercase tracking-widest leading-none mb-1">{fit.styleCategory}</span>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium tracking-wide truncate">{fit.name}</span>
+                          <button 
+                            onClick={() => handleStartEditMetadata(fit)}
+                            className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          >
+                            <Edit3 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
                         <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLoadFit(fit);
-                          }} 
-                          className="text-[10px] sm:text-xs uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 sm:px-4 py-1.5 sm:py-2 border border-zinc-800 rounded-full hover:bg-zinc-800"
-                          tabIndex={isCurrent ? 0 : -1}
+                          onClick={() => handleLoadFit(fit)} 
+                          className="text-[10px] uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-full hover:bg-zinc-800"
                         >
                           Load
                         </button>
-                      </div>
-                    </div>
-                    <div className={`w-full ${isCurrent ? '' : 'pointer-events-none'}`}>
-                      <FitLayoutPreview outfit={fit.outfit} size="sm" />
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-            
-            {/* Navigation Buttons */}
-            {displayedFits.length > 1 && (
-              <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-between px-0 sm:px-4 pointer-events-none z-30">
-                <button 
-                  onClick={() => {
-                    setLookbookDirection(-1);
-                    setLookbookIndex(prev => (prev - 1 + displayedFits.length) % displayedFits.length);
-                  }}
-                  className="pointer-events-auto p-4 rounded-full bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors backdrop-blur-md border border-zinc-800"
-                >
-                  <ArrowLeft size={24} />
-                </button>
-                <button 
-                  onClick={() => {
-                    setLookbookDirection(1);
-                    setLookbookIndex(prev => (prev + 1) % displayedFits.length);
-                  }}
-                  className="pointer-events-auto p-4 rounded-full bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors backdrop-blur-md border border-zinc-800"
-                >
-                  <ArrowRight size={24} />
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {displayedFits.map(fit => (
-              <motion.div 
-                layout
-                key={fit.id} 
-                draggable={fitFilterItemId === 'All'}
-                onDragStart={() => fitFilterItemId === 'All' && handleFitDragStart(fit.id)}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (fitFilterItemId === 'All') handleFitDragOver(fit.id);
-                }}
-                onDragEnd={handleFitDragEnd}
-                className={`flex flex-col gap-4 p-4 border border-zinc-900 rounded-2xl bg-zinc-950/50 hover:border-zinc-700 transition-colors group ${fitFilterItemId === 'All' ? 'cursor-grab active:cursor-grabbing' : ''} ${draggedFitId === fit.id ? 'opacity-50 border-zinc-500' : ''}`}
-              >
-                <FitCollage outfit={fit.outfit} onClick={() => setPreviewFit(fit)} />
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex flex-col overflow-hidden pr-2">
-                      {fit.styleCategory && (
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-widest leading-none mb-1">{fit.styleCategory}</span>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium tracking-wide truncate">{fit.name}</span>
                         <button 
-                          onClick={() => handleStartEditMetadata(fit)}
-                          className="text-zinc-500 hover:text-zinc-300 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          onClick={() => handleDeleteFit(fit.id)} 
+                          className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                         >
-                          <Edit3 size={12} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button 
-                        onClick={() => handleLoadFit(fit)} 
-                        className="text-[10px] uppercase tracking-widest text-zinc-400 hover:text-white transition-colors px-3 py-1.5 border border-zinc-800 rounded-full hover:bg-zinc-800"
-                      >
-                        Load
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteFit(fit.id)} 
-                        className="p-1.5 text-zinc-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                    <div className="flex items-center gap-2 text-zinc-500">
+                      {fit.weather === 'hot' && <ThermometerSun size={14} className="text-red-400/70" />}
+                      {fit.weather === 'medium' && <Thermometer size={14} className="text-zinc-400/70" />}
+                      {fit.weather === 'cold' && <ThermometerSnowflake size={14} className="text-blue-400/70" />}
+                      {fit.rain && <CloudRain size={14} className="text-blue-400/70" />}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-zinc-500">
-                    {fit.weather === 'hot' && <ThermometerSun size={14} className="text-red-400/70" />}
-                    {fit.weather === 'medium' && <Thermometer size={14} className="text-zinc-400/70" />}
-                    {fit.weather === 'cold' && <ThermometerSnowflake size={14} className="text-blue-400/70" />}
-                    {fit.rain && <CloudRain size={14} className="text-blue-400/70" />}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     );
   };
@@ -1298,19 +1323,29 @@ export default function App() {
             <h3 className="text-lg font-light tracking-widest uppercase mb-6">{uploadDraft?.id ? 'Edit Item' : 'Add to Closet'}</h3>
             
             {!uploadDraft ? (
-              <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-zinc-800 rounded-xl hover:border-zinc-600 hover:bg-zinc-900/50 transition-all cursor-pointer group">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <Upload className="w-8 h-8 text-zinc-600 group-hover:text-zinc-400 mb-4 transition-colors" />
-                  <p className="text-sm text-zinc-500 font-mono uppercase tracking-widest">Click to upload</p>
+              <label 
+                className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl transition-all cursor-pointer group ${isDragging ? 'border-zinc-400 bg-zinc-800/50' : 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900/50'}`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleFileDrop}
+              >
+                <div className="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none">
+                  <Upload className={`w-8 h-8 mb-4 transition-colors ${isDragging ? 'text-zinc-300' : 'text-zinc-600 group-hover:text-zinc-400'}`} />
+                  <p className="text-sm text-zinc-500 font-mono uppercase tracking-widest text-center px-4">Click or drag image to upload</p>
                 </div>
                 <input type="file" className="hidden" accept="image/*" onChange={handleFileSelect} />
               </label>
             ) : (
               <div className="flex flex-col gap-4">
-                <label className="w-full h-48 rounded-xl border border-zinc-800 overflow-hidden bg-zinc-900/50 relative group cursor-pointer block">
-                  <img src={uploadDraft.preview} alt="Preview" className="w-full h-full object-contain" />
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-xs uppercase tracking-widest text-white font-mono">Change Image</span>
+                <label 
+                  className={`w-full h-48 rounded-xl border overflow-hidden relative group cursor-pointer block transition-colors ${isDragging ? 'border-zinc-400 bg-zinc-800/50' : 'border-zinc-800 bg-zinc-900/50'}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleFileDrop}
+                >
+                  <img src={uploadDraft.preview} alt="Preview" className={`w-full h-full object-contain transition-opacity ${isDragging ? 'opacity-50' : ''}`} />
+                  <div className={`absolute inset-0 bg-black/50 flex items-center justify-center transition-opacity ${isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                    <span className="text-xs uppercase tracking-widest text-white font-mono">{isDragging ? 'Drop to replace' : 'Change Image'}</span>
                   </div>
                   <input type="file" className="hidden" accept="image/*" onChange={handleFileSelect} />
                 </label>
