@@ -237,8 +237,8 @@ const getCarouselOffset = (index: number, currentIndex: number, length: number) 
 };
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewState>('home');
-  const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [currentView, setCurrentView] = useState<ViewState>(() => (localStorage.getItem('currentView') as ViewState) || 'home');
+  const [categoryFilter, setCategoryFilter] = useState<string>(() => localStorage.getItem('categoryFilter') || 'All');
   const [dbStatus, setDbStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
 
   const [closet, setCloset] = useState<Item[]>([]);
@@ -266,11 +266,14 @@ export default function App() {
   
   // Save Fit State
   const [isSavingFit, setIsSavingFit] = useState(false);
-  const [fitName, setFitName] = useState('');
-  const [fitStyleCategory, setFitStyleCategory] = useState('');
-  const [fitWeather, setFitWeather] = useState<('hot' | 'medium' | 'cold')[]>(['medium']);
-  const [fitRain, setFitRain] = useState(false);
-  const [editingFitId, setEditingFitId] = useState<string | null>(null);
+  const [fitName, setFitName] = useState(() => localStorage.getItem('fitName') || '');
+  const [fitStyleCategory, setFitStyleCategory] = useState(() => localStorage.getItem('fitStyleCategory') || '');
+  const [fitWeather, setFitWeather] = useState<('hot' | 'medium' | 'cold')[]>(() => {
+    const saved = localStorage.getItem('fitWeather');
+    return saved ? JSON.parse(saved) : ['medium'];
+  });
+  const [fitRain, setFitRain] = useState(() => localStorage.getItem('fitRain') === 'true');
+  const [editingFitId, setEditingFitId] = useState<string | null>(() => localStorage.getItem('editingFitId'));
   
   // Rename Fit State
   const [editingFitMetadata, setEditingFitMetadata] = useState<SavedFit | null>(null);
@@ -281,18 +284,57 @@ export default function App() {
 
   const [draggedItem, setDraggedItem] = useState<Item | null>(null);
   const [draggedFitId, setDraggedFitId] = useState<string | null>(null);
-  const [fitFilterItemId, setFitFilterItemId] = useState<string>('All');
+  const [fitFilterItemId, setFitFilterItemId] = useState<string>(() => localStorage.getItem('fitFilterItemId') || 'All');
   const [isItemFilterOpen, setIsItemFilterOpen] = useState(false);
-  const [fitFilterStyle, setFitFilterStyle] = useState<string>('All');
-  const [fitSortWeather, setFitSortWeather] = useState<'all' | 'hot' | 'medium' | 'cold'>('all');
-  const [fitSortRain, setFitSortRain] = useState<'all' | 'rain' | 'no-rain'>('all');
-  const [fitSortOrder, setFitSortOrder] = useState<'custom' | 'name-asc' | 'name-desc'>('custom');
+  const [fitFilterStyle, setFitFilterStyle] = useState<string>(() => localStorage.getItem('fitFilterStyle') || 'All');
+  const [fitSortWeather, setFitSortWeather] = useState<'all' | 'hot' | 'medium' | 'cold'>(() => (localStorage.getItem('fitSortWeather') as any) || 'all');
+  const [fitSortRain, setFitSortRain] = useState<'all' | 'rain' | 'no-rain'>(() => (localStorage.getItem('fitSortRain') as any) || 'all');
+  const [fitSortOrder, setFitSortOrder] = useState<'custom' | 'name-asc' | 'name-desc'>(() => (localStorage.getItem('fitSortOrder') as any) || 'custom');
   const [lookbookMode, setLookbookMode] = useState(false);
   const [lookbookIndex, setLookbookIndex] = useState(0);
   const [lookbookDirection, setLookbookDirection] = useState(0);
   const [previewFit, setPreviewFit] = useState<SavedFit | null>(null);
-  const [builderPage, setBuilderPage] = useState(0);
-  const [closetPage, setClosetPage] = useState(0);
+  const [builderPage, setBuilderPage] = useState(() => parseInt(localStorage.getItem('builderPage') || '0', 10));
+  const [closetPage, setClosetPage] = useState(() => parseInt(localStorage.getItem('closetPage') || '0', 10));
+
+  useEffect(() => {
+    localStorage.setItem('currentView', currentView);
+    localStorage.setItem('categoryFilter', categoryFilter);
+    localStorage.setItem('fitFilterItemId', fitFilterItemId);
+    localStorage.setItem('fitFilterStyle', fitFilterStyle);
+    localStorage.setItem('fitSortWeather', fitSortWeather);
+    localStorage.setItem('fitSortRain', fitSortRain);
+    localStorage.setItem('fitSortOrder', fitSortOrder);
+    localStorage.setItem('builderPage', builderPage.toString());
+    localStorage.setItem('closetPage', closetPage.toString());
+  }, [currentView, categoryFilter, fitFilterItemId, fitFilterStyle, fitSortWeather, fitSortRain, fitSortOrder, builderPage, closetPage]);
+
+  useEffect(() => {
+    localStorage.setItem('fitName', fitName);
+    localStorage.setItem('fitStyleCategory', fitStyleCategory);
+    localStorage.setItem('fitWeather', JSON.stringify(fitWeather));
+    localStorage.setItem('fitRain', fitRain.toString());
+    if (editingFitId) {
+      localStorage.setItem('editingFitId', editingFitId);
+    } else {
+      localStorage.removeItem('editingFitId');
+    }
+  }, [fitName, fitStyleCategory, fitWeather, fitRain, editingFitId]);
+
+  useEffect(() => {
+    const outfitIds = {
+      headwear: outfit.headwear.map(i => i.id),
+      eyewear: outfit.eyewear.map(i => i.id),
+      top: outfit.top.map(i => i.id),
+      bottom: outfit.bottom.map(i => i.id),
+      footwear: outfit.footwear.map(i => i.id),
+      leftArm: outfit.leftArm.map(i => i.id),
+      rightArm: outfit.rightArm.map(i => i.id),
+      accessories: outfit.accessories.map(i => i.id),
+      watch: outfit.watch.map(i => i.id),
+    };
+    localStorage.setItem('currentOutfit', JSON.stringify(outfitIds));
+  }, [outfit]);
 
   const displayedFits = savedFits
     .filter(fit => fitFilterItemId === 'All' || Object.values(fit.outfit).some(slot => (slot as Item[]).some(item => item.id === fitFilterItemId)))
@@ -327,6 +369,7 @@ export default function App() {
           return {
             id: dbFit.id,
             name: dbFit.name,
+            styleCategory: dbFit.styleCategory,
             order: dbFit.order ?? 0,
             weather: dbFit.weather,
             rain: dbFit.rain,
@@ -347,6 +390,29 @@ export default function App() {
         // Normalize orders
         loadedFits.forEach((f, i) => f.order = i);
         setSavedFits(loadedFits);
+
+        // Restore current outfit from localStorage
+        const savedOutfitStr = localStorage.getItem('currentOutfit');
+        if (savedOutfitStr) {
+          try {
+            const savedOutfitIds = JSON.parse(savedOutfitStr);
+            const mapSlot = (ids: string[]) => ids.map(id => loadedItems.find(i => i.id === id)).filter(Boolean) as Item[];
+            setOutfit({
+              headwear: mapSlot(savedOutfitIds.headwear || []),
+              eyewear: mapSlot(savedOutfitIds.eyewear || []),
+              top: mapSlot(savedOutfitIds.top || []),
+              bottom: mapSlot(savedOutfitIds.bottom || []),
+              footwear: mapSlot(savedOutfitIds.footwear || []),
+              leftArm: mapSlot(savedOutfitIds.leftArm || []),
+              rightArm: mapSlot(savedOutfitIds.rightArm || []),
+              accessories: mapSlot(savedOutfitIds.accessories || []),
+              watch: mapSlot(savedOutfitIds.watch || []),
+            });
+          } catch (e) {
+            console.error("Failed to parse saved outfit", e);
+          }
+        }
+
         setDbStatus('connected');
       } catch (err) {
         console.error("Failed to load data from DB", err);
@@ -607,7 +673,8 @@ export default function App() {
         setSavedFits((prev) => [...prev, newFit]);
       }
       setFitName('');
-      setFitWeather('medium');
+      setFitStyleCategory('');
+      setFitWeather(['medium']);
       setFitRain(false);
       setEditingFitId(null);
       setIsSavingFit(false);
@@ -646,6 +713,7 @@ export default function App() {
         await addFitDB({
           id: fit.id,
           name: fit.name,
+          styleCategory: fit.styleCategory,
           order: fit.order,
           weather: fit.weather,
           rain: fit.rain,
@@ -671,6 +739,7 @@ export default function App() {
     setOutfit(fit.outfit);
     setEditingFitId(fit.id);
     setFitName(fit.name === 'Untitled Fit' ? '' : fit.name);
+    setFitStyleCategory(fit.styleCategory || '');
     setFitWeather(Array.isArray(fit.weather) ? fit.weather : (fit.weather ? [fit.weather] : ['medium']));
     setFitRain(fit.rain || false);
     setCurrentView('builder');
@@ -976,6 +1045,31 @@ export default function App() {
           <h2 className="text-sm uppercase tracking-widest text-zinc-500 font-mono">Outfit Builder</h2>
           <div className="flex items-center gap-4">
             <span className="text-xs text-zinc-600 font-mono hidden sm:inline-block">DRAG & DROP</span>
+            <button 
+              onClick={() => {
+                setOutfit({
+                  headwear: [],
+                  eyewear: [],
+                  top: [],
+                  bottom: [],
+                  footwear: [],
+                  leftArm: [],
+                  rightArm: [],
+                  accessories: [],
+                  watch: [],
+                });
+                setFitName('');
+                setFitStyleCategory('');
+                setFitWeather(['medium']);
+                setFitRain(false);
+                setEditingFitId(null);
+              }}
+              disabled={isOutfitEmpty && !editingFitId}
+              className="flex items-center gap-2 text-xs uppercase tracking-widest text-zinc-400 hover:text-red-400 transition-colors border border-zinc-800 px-3 py-1.5 rounded-full hover:bg-red-950/30 hover:border-red-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Trash2 size={12} />
+              Clear
+            </button>
             <button 
               onClick={() => {
                 setIsSavingFit(true);
