@@ -237,7 +237,7 @@ const getCarouselOffset = (index: number, currentIndex: number, length: number) 
 };
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<ViewState>(() => (localStorage.getItem('currentView') as ViewState) || 'home');
+  const [currentView, setCurrentView] = useState<ViewState>('home');
   const [categoryFilter, setCategoryFilter] = useState<string>(() => localStorage.getItem('categoryFilter') || 'All');
   const [dbStatus, setDbStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
 
@@ -298,7 +298,6 @@ export default function App() {
   const [closetPage, setClosetPage] = useState(() => parseInt(localStorage.getItem('closetPage') || '0', 10));
 
   useEffect(() => {
-    localStorage.setItem('currentView', currentView);
     localStorage.setItem('categoryFilter', categoryFilter);
     localStorage.setItem('fitFilterItemId', fitFilterItemId);
     localStorage.setItem('fitFilterStyle', fitFilterStyle);
@@ -307,7 +306,7 @@ export default function App() {
     localStorage.setItem('fitSortOrder', fitSortOrder);
     localStorage.setItem('builderPage', builderPage.toString());
     localStorage.setItem('closetPage', closetPage.toString());
-  }, [currentView, categoryFilter, fitFilterItemId, fitFilterStyle, fitSortWeather, fitSortRain, fitSortOrder, builderPage, closetPage]);
+  }, [categoryFilter, fitFilterItemId, fitFilterStyle, fitSortWeather, fitSortRain, fitSortOrder, builderPage, closetPage]);
 
   useEffect(() => {
     localStorage.setItem('fitName', fitName);
